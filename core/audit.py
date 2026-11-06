@@ -118,9 +118,9 @@ def font_findings(document, rule, body_style=None, confirmed=False):
             actual = "; ".join(f"{name or 'tidak diketahui'} / {f'{size:g} pt' if size is not None else 'ukuran tidak diketahui'}" for name, size in values)
             expected_name, expected_size = rule["expected_value_pattern"].rsplit(" ", 2)[0], float(rule["expected_value_pattern"].rsplit(" ", 2)[1])
             wrong = any((name is not None and name.casefold() != expected_name.casefold()) or (size is not None and size != expected_size) for name, size in values)
-            unknown = not values or any(name is None or size is None for name, size in values)
-            status = "fail" if wrong else "needs_review" if unknown else "pass"
-            results.append(finding(rule, status, location, actual or "Tidak dapat diverifikasi", "Pemeriksaan terbatas pada kandidat yang dikonfirmasi; nilai tidak diketahui memerlukan review."))
+            unknown = not values or any(name is None or size is None or any(token in name.casefold() for token in ("symbol", "wingdings", "webdings", "dingbats")) for name, size in values)
+            status = "needs_review" if unknown else "fail" if wrong else "pass"
+            results.append(finding(rule, status, location, actual or "Tidak dapat diverifikasi", "Pemeriksaan terbatas pada kandidat yang dikonfirmasi; font simbol, theme, atau nilai tidak diketahui memerlukan review."))
         if not results:
             results.append(finding(rule, "needs_review", "dokumen", "Tidak dapat diverifikasi", "Tidak ada paragraf kandidat untuk style yang dipilih."))
         return results

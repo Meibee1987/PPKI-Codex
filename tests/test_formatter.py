@@ -7,7 +7,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.section import WD_ORIENT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Cm
+from docx.shared import Cm, Pt
 import base64
 
 from core.formatter import format_docx, plan_changes
@@ -206,3 +206,108 @@ def test_skipped_reason_for_landscape_and_multiple_columns():
     skipped = skipped_changes(data, rules, "S1", findings, plan, None, False)
     assert "landscape" in next(i for i in skipped if i["location"] == "section:1")["alasan_dilewati"]
     assert "2 kolom" in next(i for i in skipped if i["location"] == "section:2")["alasan_dilewati"]
+
+
+def test_font_formatter_selective_runs_integrity_and_idempotence():
+    from core.formatter import skipped_changes
+    from core.audit import audit_docx
+    doc = Document()
+    section = doc.sections[0]
+    section.page_width, section.page_height = Cm(21), Cm(29.7)
+    section.left_margin, section.right_margin, section.top_margin, section.bottom_margin = Cm(4), Cm(3), Cm(3), Cm(3)
+    p = doc.add_paragraph(style="Body Text")
+    for text, name, size in [("Arial both", "Arial", 11), (" correct", "Times New Roman", 12), (" size", "Times New Roman", 11), (" name", "Arial", 12)]:
+        run = p.add_run(text); run.font.name = name; run.font.size = Pt(size)
+    p.runs[0].bold = True; p.runs[0].italic = True; p.runs[0].font.superscript = True
+    p.runs[2].underline = True
+    doc.add_heading("Heading", 1)
+    doc.add_paragraph("Caption", style="Caption")
+    doc.add_paragraph("Outside scope")
+    special = doc.add_paragraph(style="Body Text")
+    r = special.add_run("symbol"); r.font.name = "Symbol"; r.font.size = Pt(11)
+    complex_p = doc.add_paragraph("Link", style="Body Text")
+    complex_p._p.append(OxmlElement("w:hyperlink"))
+    math_p = doc.add_paragraph("Equation", style="Body Text")
+    math_p._p.append(OxmlElement("m:oMath"))
+    doc.add_table(rows=1, cols=1).cell(0, 0).text = "Data"
+    image = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a5sAAAAASUVORK5CYII=")
+    doc.add_picture(BytesIO(image))
+    stream = BytesIO(); doc.save(stream); data = stream.getvalue(); rules = load_rules()
+    before = audit_docx(data, rules, "S1", "BodyText", True)
+    plan = plan_changes(data, rules, "S1", "BodyText", True)
+    font_plan = [i for i in plan if i["rule_code"] == "PPKI-LAY-005"]
+    assert len(font_plan) == 1 and font_plan[0]["status"] == "fail"
+    skipped = skipped_changes(data, rules, "S1", before, plan, "BodyText", True)
+    assert {i["location"] for i in skipped if i["rule_code"] == "PPKI-LAY-005"} == {"paragraf:5", "paragraf:6", "paragraf:7"}
+    output, after, changes = format_docx(data, rules, "S1", "BodyText", True)
+    assert len([i for i in changes if i["rule_code"] == "PPKI-LAY-005"]) == 1
+    original, result = Document(BytesIO(data)), Document(BytesIO(output))
+    assert [run.font.name for run in result.paragraphs[0].runs] == ["Times New Roman"] * 4
+    assert [run.font.size.pt for run in result.paragraphs[0].runs] == [12] * 4
+    assert result.paragraphs[0].runs[0].bold and result.paragraphs[0].runs[0].italic and result.paragraphs[0].runs[0].font.superscript
+    assert result.paragraphs[0].runs[2].underline
+    assert original.paragraphs[0].runs[1]._r.xml == result.paragraphs[0].runs[1]._r.xml
+    assert [p.text for p in original.paragraphs] == [p.text for p in result.paragraphs]
+    for i in range(1, len(original.paragraphs)):
+        assert original.paragraphs[i]._p.xml == result.paragraphs[i]._p.xml
+    assert original.tables[0]._tbl.xml == result.tables[0]._tbl.xml
+    assert len(original.inline_shapes) == len(result.inline_shapes) == 1
+    result_font = [i for i in after if i["rule_code"] == "PPKI-LAY-005"]
+    assert result_font[0]["status"] == "pass" and any(i["status"] == "needs_review" for i in result_font)
+    again, _, changes_again = format_docx(output, rules, "S1", "BodyText", True)
+    assert again == output and not changes_again
+
+
+@pytest.mark.parametrize("mode", ["Manual", "Confirm"])
+def test_font_formatter_respects_fix_mode(mode):
+    doc = Document(BytesIO(sample()))
+    run = doc.paragraphs[0].runs[0]; run.font.name = "Arial"; run.font.size = Pt(11)
+    stream = BytesIO(); doc.save(stream); rules = load_rules()
+    next(rule for rule in rules if rule["rule_code"] == "PPKI-LAY-005")["fix_mode"] = mode
+    assert "PPKI-LAY-005" not in {item["rule_code"] for item in plan_changes(stream.getvalue(), rules, "S1", "BodyText", True)}
+
+
+def test_font_ambiguous_run_skips_entire_paragraph():
+    from core.audit import audit_docx
+    doc = Document(BytesIO(sample()))
+    p = doc.paragraphs[0]
+    p.runs[0].font.name = "Arial"; p.runs[0].font.size = Pt(11)
+    themed = p.add_run(" theme"); themed.font.name = "Arial"; themed.font.size = Pt(11)
+    themed._r.rPr.rFonts.set(qn("w:asciiTheme"), "majorHAnsi")
+    stream = BytesIO(); doc.save(stream); rules = load_rules()
+    item = next(f for f in audit_docx(stream.getvalue(), rules, "S1", "BodyText", True) if f["rule_code"] == "PPKI-LAY-005")
+    assert item["status"] == "needs_review"
+    assert "PPKI-LAY-005" not in {f["rule_code"] for f in plan_changes(stream.getvalue(), rules, "S1", "BodyText", True)}
+
+
+def test_font_style_inheritance_does_not_change_global_style():
+    doc = Document(BytesIO(sample()))
+    style = doc.styles["Body Text"]
+    style.font.name = "Arial"; style.font.size = Pt(11)
+    stream = BytesIO(); doc.save(stream); data = stream.getvalue()
+    output, after, changes = format_docx(data, load_rules(), "S1", "BodyText", True)
+    assert any(item["rule_code"] == "PPKI-LAY-005" for item in changes)
+    before, result = Document(BytesIO(data)), Document(BytesIO(output))
+    assert before.styles["Body Text"].element.xml == result.styles["Body Text"].element.xml
+    assert result.paragraphs[0].runs[0].font.name == "Times New Roman"
+    assert next(item for item in after if item["rule_code"] == "PPKI-LAY-005")["status"] == "pass"
+
+
+def test_font_formatter_streamlit_plan_and_report():
+    from pathlib import Path
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    from streamlit.testing.v1 import AppTest
+    doc = Document(BytesIO(sample()))
+    run = doc.paragraphs[0].runs[0]; run.font.name = "Arial"; run.font.size = Pt(11)
+    stream = BytesIO(); doc.save(stream); data = stream.getvalue()
+    with patch("streamlit.file_uploader", return_value=SimpleNamespace(name="dummy.docx", getvalue=lambda: data)):
+        app = AppTest.from_file(Path(__file__).resolve().parent.parent / "app.py", default_timeout=15).run()
+        app.selectbox[1].select("BodyText").run()
+        app.checkbox[0].check(); app.button[0].click().run()
+        assert any(i["rule_code"] == "PPKI-LAY-005" for i in app.session_state["audit_t4a"]["plan"])
+        next(button for button in app.button if button.label == "Terapkan Perbaikan").click().run()
+        assert not app.exception
+        report = next(i for i in app.session_state["output_t4a"]["report"] if i["rule_code"] == "PPKI-LAY-005")
+        assert "Arial / 11 pt" in report["sebelum"] and "Times New Roman / 12 pt" in report["sesudah"] and report["status"] == "pass"
+        assert len(app.get("download_button")) == 2

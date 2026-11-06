@@ -40,8 +40,8 @@ disimpan sebagai salinan, diperiksa integritasnya, dan diaudit ulang.
 
 T4B selesai untuk `LAY-003` dan `LAY-008` sampai `LAY-011` pada section yang
 aman, dengan audit ulang dan laporan perubahan CSV. Section landscape/berkolom
-dilewati. Formatter font dan laporan JSON lengkap masih belum dikerjakan;
-karena itu T4 keseluruhan belum selesai.
+dilewati. Laporan JSON lengkap masih belum dikerjakan; karena itu T4
+keseluruhan belum selesai.
 
 ## T5 — Uji dokumen nyata dan hardening dasar [P0]
 **Buat:** tests untuk ≥5 fixture DOCX: normal, multi-section, tabel+gambar, heading campur, dan paragraf dengan runs/hyperlink/field. Tambah validasi file rusak dan ukuran maksimum.
@@ -53,7 +53,15 @@ Pemilik menerima tiga fixture untuk cakupan MVP, tanpa menambah dua fixture hany
 untuk memenuhi angka lima. T5 belum dinyatakan selesai: hasil pemeriksaan manual
 Word belum diterima dan validasi batas ukuran file belum diimplementasikan atau diuji.
 
-## T6 — Heading dan abstrak [P1, setelah T5]
+## T6 — Safe Font Formatter [selesai untuk cakupan MVP terbatas]
+
+`PPKI-LAY-005` dapat diperbaiki pada style isi yang dipilih dan dikonfirmasi,
+hanya jika setiap run teks dalam paragraf aman dan font serta ukurannya diketahui.
+Font simbol, theme ambigu, struktur kompleks, dan nilai tidak diketahui tetap
+perlu review. T5 masih menunggu pemeriksaan akhir Microsoft Word dan validasi
+batas ukuran file; perubahan ini tidak menyatakan T5 selesai.
+
+## Heading dan abstrak [P1, setelah T5; belum dikerjakan]
 **Buat:** pilih subset rules `HDG` dan `ABS` yang benar-benar dapat ditangani, klasifikasi konservatif, konfirmasi untuk kasus ambigu. Tambah per aturan beserta tes.
 
 **Selesai jika:** setiap handler baru punya test, tidak mengubah isi tulisan, dan tidak mengklaim support untuk aturan tanpa handler.

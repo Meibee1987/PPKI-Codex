@@ -27,6 +27,10 @@ yang gagal pada paragraf terkonfirmasi. Tinjau rencana, lalu pilih Terapkan
 Perbaikan; hasil hanya tersedia setelah pemeriksaan integritas dan audit ulang.
 Aturan Manual dan Confirm dilewati pada tahap ini. Struktur yang tidak dikenali
 memerlukan review dan hasil tetap perlu diperiksa di Microsoft Word.
+Formatter font `LAY-005` dapat memperbaiki run yang diketahui pada paragraf
+yang style dan cakupannya telah dikonfirmasi. Jika satu run menggunakan font
+simbol, theme ambigu, atau properti tak diketahui, seluruh paragraf dilewati
+untuk review. Style global dan properti seperti bold dan italic tidak diubah.
 T4B juga mendukung perbaikan halaman per section untuk `LAY-003` dan
 `LAY-008` sampai `LAY-011`, dengan laporan perubahan CSV. Section landscape,
 berkolom, atau tidak pasti dilewati untuk review. Audit dan format paragraf

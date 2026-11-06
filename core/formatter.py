@@ -4,9 +4,9 @@ from zipfile import ZipFile
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.shared import Cm
+from docx.shared import Cm, Pt
 
-from core.audit import audit_docx, PAGE_RULES
+from core.audit import audit_docx, PAGE_RULES, certain_font
 from core.rules import filter_rules
 
 
@@ -15,6 +15,36 @@ VALUES = {"PPKI-LAY-017": ("line_spacing", 1.0),
           "PPKI-LAY-019": ("alignment", WD_ALIGN_PARAGRAPH.JUSTIFY)}
 NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 PAGE_CODES = {spec[0]: (spec[2], spec[3]) for spec in PAGE_RULES.values()}
+FONT_CODE = "PPKI-LAY-005"
+SYMBOL_FONTS = ("symbol", "wingdings", "webdings", "dingbats")
+
+
+def font_targets(paragraph, expected):
+    """Return changed run indexes and properties, or None for ambiguous paragraphs."""
+    from docx.oxml.ns import qn
+    if any(child.tag not in (qn("w:pPr"), qn("w:r")) for child in paragraph._p):
+        return None
+    expected_name, amount, unit = expected.rsplit(" ", 2)
+    if unit != "pt":
+        return None
+    size = float(amount)
+    targets = []
+    for index, run in enumerate(paragraph.runs):
+        if any(child.tag not in (qn("w:rPr"), qn("w:t")) for child in run._r):
+            return None
+        if not run.text.strip():
+            continue
+        name, actual_size = certain_font(run, paragraph)
+        if name is None or actual_size is None or any(token in name.casefold() for token in SYMBOL_FONTS):
+            return None
+        fields = set()
+        if name.casefold() != expected_name.casefold():
+            fields.add("name")
+        if actual_size != size:
+            fields.add("size")
+        if fields:
+            targets.append((index, fields))
+    return targets
 
 
 def section_skip_reason(section):
@@ -56,7 +86,7 @@ def skipped_changes(data, rules, degree, findings, plan, style, confirmed):
     skipped = []
     for item in findings:
         code, location, status = item["rule_code"], item["location"], item["status"]
-        if code not in PAGE_CODES and code not in VALUES:
+        if code not in PAGE_CODES and code not in VALUES and code != FONT_CODE:
             continue
         if status not in {"fail", "needs_review", "not_supported"} or (code, location) in planned:
             continue
@@ -73,6 +103,8 @@ def skipped_changes(data, rules, degree, findings, plan, style, confirmed):
             reason = section_skip_reason(document.sections[int(location.split(":")[1]) - 1]) or "Section memerlukan review."
         elif not style or not confirmed:
             reason = "Style teks isi belum dipilih dan dikonfirmasi."
+        elif code == FONT_CODE and location.startswith("paragraf:"):
+            reason = "Font simbol, theme, properti tidak diketahui, atau struktur run kompleks memerlukan review."
         else:
             reason = "Temuan tidak memenuhi syarat perbaikan aman."
         skipped.append({**item, "alasan_dilewati": reason})
@@ -91,6 +123,10 @@ def plan_changes(data, rules, degree, style, confirmed):
             continue
         if code in VALUES and confirmed and style and location.startswith("paragraf:"):
             result.append(item)
+        elif code == FONT_CODE and confirmed and style and location.startswith("paragraf:"):
+            paragraph = document.paragraphs[int(location.split(":")[1]) - 1]
+            if paragraph.style.style_id == style and font_targets(paragraph, item["expected"]):
+                result.append(item)
         elif code in PAGE_CODES and location.startswith("section:") and section_is_safe(document.sections[int(location.split(":")[1]) - 1]):
             result.append(item)
     return result
@@ -112,6 +148,26 @@ def _document_structure(xml, changes):
         elif child.tag == NS + "sectPr":
             sections.append(child)
     for index, codes in changes.items():
+        if isinstance(index, tuple):
+            _, paragraph_index, run_index = index
+            run = paragraphs[paragraph_index - 1].findall(NS + "r")[run_index]
+            rpr = run.find(NS + "rPr")
+            if rpr is None:
+                continue
+            if "name" in codes:
+                fonts = rpr.find(NS + "rFonts")
+                if fonts is not None:
+                    for key in ("ascii", "hAnsi"):
+                        fonts.attrib.pop(NS + key, None)
+                    if not fonts.attrib and not list(fonts):
+                        rpr.remove(fonts)
+            if "size" in codes:
+                size = rpr.find(NS + "sz")
+                if size is not None:
+                    rpr.remove(size)
+            if not rpr.attrib and not list(rpr):
+                run.remove(rpr)
+            continue
         if isinstance(index, str):
             section = sections[int(index.split(":")[1]) - 1]
             for code in codes:
@@ -176,6 +232,19 @@ def format_docx(data, rules, degree, style, confirmed):
         paragraph = document.paragraphs[index - 1]
         if paragraph.style.style_id != style:
             raise ValueError("Cakupan paragraf berubah; audit ulang diperlukan.")
+        if item["rule_code"] == FONT_CODE:
+            targets = font_targets(paragraph, item["expected"])
+            if not targets:
+                raise ValueError("Font tidak aman untuk diperbaiki; audit ulang diperlukan.")
+            expected_name, amount, _ = item["expected"].rsplit(" ", 2)
+            for run_index, fields in targets:
+                run = paragraph.runs[run_index]
+                if "name" in fields:
+                    run.font.name = expected_name
+                if "size" in fields:
+                    run.font.size = Pt(float(amount))
+                changed[("font", index, run_index)] = fields
+            continue
         attribute, value = VALUES[item["rule_code"]]
         setattr(paragraph.paragraph_format, attribute, value)
         changed.setdefault(index, set()).add(item["rule_code"])
