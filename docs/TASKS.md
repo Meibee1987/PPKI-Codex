@@ -1,0 +1,57 @@
+# Task Plan — kerjakan satu per satu dengan Codex
+
+**Aturan:** jangan lompat ke task berikut sampai kriteria selesai dan tes task saat ini jelas. Prioritas `P0` dulu. Untuk setiap task, Codex harus menjelaskan file berubah, tes, serta batasan.
+
+## T0 — Scaffold minimal [P0]
+**Buat:** `app.py`, `requirements.txt`, `README.md` praktis, `.gitignore`, struktur folder `core/`, `tests/` hanya bila diperlukan. UI Streamlit: judul, upload DOCX, pilih S1/S2/S3, tombol Audit yang belum berjalan dengan pesan jujur.
+
+**Selesai jika:** aplikasi Streamlit dapat dibuka lokal; tidak ada API key, database, atau request jaringan; file asli tidak tersimpan sembarangan.
+
+## T1 — Rule loader + filter [P0]
+**Buat:** baca `rules/ppki_rules_all.json`, validasi minimal field wajib, deduplikasi/cek unique `rule_code`, filter `applies_to` secara eksplisit. Tampilkan jumlah aturan applicable/unsupported.
+
+**Selesai jika:** tes untuk S1/S2/S3, `rule_code` duplikat, JSON rusak, dan tag applicability yang tidak dikenal lulus. Tidak semua 317 dianggap applicable secara otomatis.
+
+## T2 — Audit 6 properti halaman + font/body [P0]
+**Buat:** validator awal untuk A4 dan empat margin (**LAY-003, LAY-008, LAY-009, LAY-010, LAY-011**); tambah satu validator body yang aman (**LAY-005**) saat klasifikasi body sudah cukup jelas. Tampilkan findings dengan `rule_code`, actual, expected, lokasi, status, dan alasan unsupported.
+
+**Selesai jika:** nilai A4/margin sesuai dataset PPKI; paragraf ambigu tidak salah diklasifikasikan; tes unit berhasil.
+
+## T3 — Audit dan format 3 properti body [P0]
+**Buat:** tambah audit line spacing 1.0 (**LAY-017**), first line indent 1 cm (**LAY-018**), dan alignment justified (**LAY-019**). Implementasikan daftar perubahan yang diusulkan (dry-run). Jangan ubah paragraf khusus/field/tabel.
+
+**Selesai jika:** 9 kandidat aturan memiliki audit yang dapat diuji; fixture body bisa dibedakan dari heading/caption/abstrak; hal yang ambigu di-skip.
+
+## T4 — Terapkan perbaikan aman + ekspor [P0]
+**Buat:** tombol **Terapkan perbaikan aman**, formatter untuk 9 kandidat yang lolos audit/tes, simpan DOCX baru, audit ulang, report JSON dan CSV, tombol unduh. Tidak perlu database histori.
+
+**Selesai jika:** DOCX asli tidak berubah, file hasil dapat dibuka di Word, aturan yang diklaim fixed lolos audit ulang, action yang gagal tercatat sebagai `needs_review`/`error`.
+
+## T5 — Uji dokumen nyata dan hardening dasar [P0]
+**Buat:** tests untuk ≥5 fixture DOCX: normal, multi-section, tabel+gambar, heading campur, dan paragraf dengan runs/hyperlink/field. Tambah validasi file rusak dan ukuran maksimum.
+
+**Selesai jika:** suite pengujian lulus; teks/tabel/gambar/relasi penting tidak hilang; docx rusak ditolak tanpa crash; daftar keterbatasan tersaji di UI.
+
+## T6 — Heading dan abstrak [P1, setelah T5]
+**Buat:** pilih subset rules `HDG` dan `ABS` yang benar-benar dapat ditangani, klasifikasi konservatif, konfirmasi untuk kasus ambigu. Tambah per aturan beserta tes.
+
+**Selesai jika:** setiap handler baru punya test, tidak mengubah isi tulisan, dan tidak mengklaim support untuk aturan tanpa handler.
+
+## T7 — AI opsional [P2, hanya kalau terbukti dibutuhkan]
+Satu pemanggilan API model yang **konfigurasinya tidak hardcode** untuk usulan klasifikasi paragraf ambigu, **opt-in per dokumen**. Tidak boleh mengirim file penuh otomatis. Hasil AI berupa usulan yang divalidasi dan disetujui sebelum menyentuh DOCX.
+
+**Selesai jika:** mode tanpa AI tetap berjalan sama baiknya, tidak ada data keluar tanpa persetujuan, biaya dan gagal API ditangani jelas.
+
+## Definisi Done setiap task
+- [ ] Perubahan kode sesuai lingkup task dan tidak mengubah aturan sumber.
+- [ ] Tes yang relevan ada dan dijalankan; hasil dilaporkan.
+- [ ] Tidak ada penambahan arsitektur yang tidak diperlukan.
+- [ ] Kesalahan/fitur yang belum didukung dilaporkan jujur.
+- [ ] Untuk formatter, input tetap utuh dan output di-audit ulang.
+
+## Prompt untuk setiap task berikut
+```text
+Baca AGENTS.md dan docs/ terkait. Kerjakan HANYA T<n> dari docs/TASKS.md.
+Jangan mengerjakan task lain, menambah dependensi, API/cloud, database, atau refactor besar.
+Jalankan tests yang relevan, lalu laporkan file berubah, hasil tes, dan risiko.
+```
