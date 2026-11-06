@@ -12,25 +12,46 @@
 
 **Selesai jika:** tes untuk S1/S2/S3, `rule_code` duplikat, JSON rusak, dan tag applicability yang tidak dikenal lulus. Tidak semua 317 dianggap applicable secara otomatis.
 
-## T2 — Audit 6 properti halaman + font/body [P0]
+## T2 — Audit 6 properti halaman + font/body [P0, selesai untuk cakupan MVP terbatas]
 **Buat:** validator awal untuk A4 dan empat margin (**LAY-003, LAY-008, LAY-009, LAY-010, LAY-011**); tambah satu validator body yang aman (**LAY-005**) saat klasifikasi body sudah cukup jelas. Tampilkan findings dengan `rule_code`, actual, expected, lokasi, status, dan alasan unsupported.
 
 **Selesai jika:** nilai A4/margin sesuai dataset PPKI; paragraf ambigu tidak salah diklasifikasikan; tes unit berhasil.
 
-## T3 — Audit dan format 3 properti body [P0]
+T2 mendukung lima validator section dan satu validator font untuk style yang dipilih
+dan cakupannya dikonfirmasi operator. Font tema, teks non-ASCII, struktur kompleks,
+nilai yang tidak diketahui, dan paragraf di luar style terpilih perlu review manual.
+
+## T3 — Audit dan format 3 properti body [P0, selesai untuk cakupan MVP terbatas]
 **Buat:** tambah audit line spacing 1.0 (**LAY-017**), first line indent 1 cm (**LAY-018**), dan alignment justified (**LAY-019**). Implementasikan daftar perubahan yang diusulkan (dry-run). Jangan ubah paragraf khusus/field/tabel.
 
 **Selesai jika:** 9 kandidat aturan memiliki audit yang dapat diuji; fixture body bisa dibedakan dari heading/caption/abstrak; hal yang ambigu di-skip.
+
+T3 mengaudit tiga properti pada style isi yang dikonfirmasi operator dan menampilkan
+usulan dry-run untuk ketidaksesuaian yang terbukti. Bagian di luar cakupan, nilai
+tidak eksplisit, daftar, dan struktur kompleks tetap memerlukan review manual.
 
 ## T4 — Terapkan perbaikan aman + ekspor [P0]
 **Buat:** tombol **Terapkan perbaikan aman**, formatter untuk 9 kandidat yang lolos audit/tes, simpan DOCX baru, audit ulang, report JSON dan CSV, tombol unduh. Tidak perlu database histori.
 
 **Selesai jika:** DOCX asli tidak berubah, file hasil dapat dibuka di Word, aturan yang diklaim fixed lolos audit ulang, action yang gagal tercatat sebagai `needs_review`/`error`.
 
+T4A selesai untuk tiga aturan Auto `LAY-017`, `LAY-018`, dan `LAY-019`: hasil
+disimpan sebagai salinan, diperiksa integritasnya, dan diaudit ulang.
+
+T4B selesai untuk `LAY-003` dan `LAY-008` sampai `LAY-011` pada section yang
+aman, dengan audit ulang dan laporan perubahan CSV. Section landscape/berkolom
+dilewati. Formatter font dan laporan JSON lengkap masih belum dikerjakan;
+karena itu T4 keseluruhan belum selesai.
+
 ## T5 — Uji dokumen nyata dan hardening dasar [P0]
 **Buat:** tests untuk ≥5 fixture DOCX: normal, multi-section, tabel+gambar, heading campur, dan paragraf dengan runs/hyperlink/field. Tambah validasi file rusak dan ukuran maksimum.
 
 **Selesai jika:** suite pengujian lulus; teks/tabel/gambar/relasi penting tidak hilang; docx rusak ditolak tanpa crash; daftar keterbatasan tersaji di UI.
+
+Pengujian tiga fixture S1/S2/S3 dan hasil audit tercatat di [laporan T5](T5_REPORT.md).
+Pemilik menerima tiga fixture untuk cakupan MVP, tanpa menambah dua fixture hanya
+untuk memenuhi angka lima. T5 belum dinyatakan selesai: hasil pemeriksaan manual
+Word belum diterima dan validasi batas ukuran file belum diimplementasikan atau diuji.
 
 ## T6 — Heading dan abstrak [P1, setelah T5]
 **Buat:** pilih subset rules `HDG` dan `ABS` yang benar-benar dapat ditangani, klasifikasi konservatif, konfirmasi untuk kasus ambigu. Tambah per aturan beserta tes.

@@ -13,9 +13,37 @@ py -3 -m venv .venv
 Buka alamat lokal yang ditampilkan Streamlit. Untuk berhenti, tekan Ctrl+C di terminal.
 Instalasi dependensi membutuhkan akses ke sumber paket; aplikasi sendiri tidak memakai API atau database.
 
-Pada T0, unggah DOCX dan pilihan S1/S2/S3 tersedia, tetapi Audit belum diimplementasikan.
-Aplikasi tidak membaca isi atau menyimpan berkas unggahan sebagai hasil, dan tidak mengubah dokumen asli.
-Aturan yang tersedia di `rules/ppki_rules_all.json` belum dimuat; pemuat aturan termasuk T1.
+Audit read-only mendukung sembilan validator: `PPKI-LAY-003`, `005`, `008`, `009`,
+`010`, `011`, `017`, `018`, dan `019`. Untuk properti teks isi, pilih style yang ditemukan dalam dokumen, periksa
+semua kandidat di Word dan konfirmasi cakupannya untuk setiap audit. Hasil font
+hanya mencakup style terpilih; paragraf lain tetap perlu pemeriksaan manual.
+Font tema, karakter non-ASCII, struktur kompleks, atau nilai yang tidak diketahui
+memerlukan review. Spasi tinggi tetap/minimum, daftar, dan properti yang tidak
+eksplisit juga perlu review. Usulan perubahan hanya dry-run dan belum diterapkan;
+aturan lain tanpa validator memerlukan pemeriksaan manual.
+Dokumen unggahan dibaca di memori dan dokumen asli tidak diubah.
+T4A dapat menerapkan tiga aturan Auto `LAY-017`, `LAY-018`, dan `LAY-019`
+yang gagal pada paragraf terkonfirmasi. Tinjau rencana, lalu pilih Terapkan
+Perbaikan; hasil hanya tersedia setelah pemeriksaan integritas dan audit ulang.
+Aturan Manual dan Confirm dilewati pada tahap ini. Struktur yang tidak dikenali
+memerlukan review dan hasil tetap perlu diperiksa di Microsoft Word.
+T4B juga mendukung perbaikan halaman per section untuk `LAY-003` dan
+`LAY-008` sampai `LAY-011`, dengan laporan perubahan CSV. Section landscape,
+berkolom, atau tidak pasti dilewati untuk review. Audit dan format paragraf
+tetap memerlukan pemilihan style dan konfirmasi cakupan.
+
+Hasil pengujian tiga dokumen representatif dan keterbatasan review visual tersedia
+di [laporan T5](docs/T5_REPORT.md). Pemilik menerima tiga fixture untuk cakupan
+MVP; hasil pemeriksaan manual dan validasi batas ukuran file masih diperlukan.
+Ringkasan aturan dibaca dari `rules/ppki_rules_all.json`. Metadata `is_implemented`
+tidak berarti validator tersedia. Label penerapan yang belum dipetakan perlu review.
+
+Untuk menjalankan tes loader di lingkungan yang sama:
+
+```powershell
+.\.venv\Scripts\python -m pip install pytest
+.\.venv\Scripts\python -m pytest -q
+```
 
 Dokumentasi siap pakai untuk membangun **MVP lokal** pemformat skripsi (S1), tesis (S2), dan disertasi (S3). Digunakan sendiri oleh penyedia jasa, sekitar **20–30 dokumen/bulan**.
 
