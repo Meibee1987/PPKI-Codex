@@ -51,15 +51,15 @@ keseluruhan belum selesai.
 Pengujian tiga fixture S1/S2/S3 dan hasil audit tercatat di [laporan T5](T5_REPORT.md).
 Pemilik menerima tiga fixture untuk cakupan MVP, tanpa menambah dua fixture hanya
 untuk memenuhi angka lima. T5 belum dinyatakan selesai: hasil pemeriksaan manual
-Word belum diterima dan validasi batas ukuran file belum diimplementasikan atau diuji.
+Word belum diterima. Validasi batas ukuran file diimplementasikan dan diuji di T14.
 
 ## T6 — Safe Font Formatter [selesai untuk cakupan MVP terbatas]
 
 `PPKI-LAY-005` dapat diperbaiki pada style isi yang dipilih dan dikonfirmasi,
 hanya jika setiap run teks dalam paragraf aman dan font serta ukurannya diketahui.
 Font simbol, theme ambigu, struktur kompleks, dan nilai tidak diketahui tetap
-perlu review. T5 masih menunggu pemeriksaan akhir Microsoft Word dan validasi
-batas ukuran file; perubahan ini tidak menyatakan T5 selesai.
+perlu review. T5 masih menunggu pemeriksaan akhir Microsoft Word; validasi batas
+ukuran file telah diuji di T14. Perubahan ini tidak menyatakan T5 selesai.
 
 ## Heading dan abstrak [P1, setelah T5; belum dikerjakan]
 **Buat:** pilih subset rules `HDG` dan `ABS` yang benar-benar dapat ditangani, klasifikasi konservatif, konfirmasi untuk kasus ambigu. Tambah per aturan beserta tes.
@@ -130,6 +130,12 @@ Upload diperiksa sebelum pemrosesan, batas ukuran dapat dikonfigurasi, dan
 state audit/unduhan dibatalkan saat konteks input berubah. Pengujian negatif,
 state dan regresi dicatat di [laporan T14](T14_REPORT.md). T13 tetap menunggu
 pemeriksaan visual Word dan dokumen nyata.
+
+## T15 — Finalisasi MVP v1.0 [RELEASE CANDIDATE]
+
+Dokumentasi kemampuan, panduan dan keterbatasan telah disiapkan. Acceptance
+dokumen nyata serta pemeriksaan visual akhir Word masih PENDING; belum siap
+produksi atau pemakaian dokumen pelanggan. Lihat [laporan rilis](T15_RELEASE_REPORT.md).
 
 ## Definisi Done setiap task
 - [ ] Perubahan kode sesuai lingkup task dan tidak mengubah aturan sumber.

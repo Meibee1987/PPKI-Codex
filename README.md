@@ -1,6 +1,12 @@
-# PPKI Academic Formatter — Codex Starter Pack
+# PPKI Academic Formatter — MVP v1.0 Release Candidate
 
-## Menjalankan aplikasi T0
+Status **RELEASE CANDIDATE**, belum siap untuk penggunaan dokumen pelanggan:
+acceptance dokumen nyata dan pemeriksaan visual akhir Microsoft Word masih
+PENDING. Lihat [laporan rilis](docs/T15_RELEASE_REPORT.md),
+[kemampuan](docs/MVP_CAPABILITIES.md), [keterbatasan](docs/KNOWN_LIMITATIONS.md),
+dan [panduan pengguna](docs/USER_GUIDE.md).
+
+## Menjalankan aplikasi
 
 Gunakan Python 3.12 atau lebih baru. Di PowerShell, dari folder proyek:
 
@@ -13,7 +19,7 @@ py -3 -m venv .venv
 Buka alamat lokal yang ditampilkan Streamlit. Untuk berhenti, tekan Ctrl+C di terminal.
 Instalasi dependensi membutuhkan akses ke sumber paket; aplikasi sendiri tidak memakai API atau database.
 
-Audit read-only mendukung sembilan validator: `PPKI-LAY-003`, `005`, `008`, `009`,
+Audit read-only mendukung sembilan validator layout: `PPKI-LAY-003`, `005`, `008`, `009`,
 `010`, `011`, `017`, `018`, dan `019`. Untuk properti teks isi, pilih style yang ditemukan dalam dokumen, periksa
 semua kandidat di Word dan konfirmasi cakupannya untuk setiap audit. Hasil font
 hanya mencakup style terpilih; paragraf lain tetap perlu pemeriksaan manual.
@@ -24,7 +30,7 @@ aturan lain tanpa validator memerlukan pemeriksaan manual.
 Dokumen unggahan dibaca di memori dan dokumen asli tidak diubah.
 T4A dapat menerapkan tiga aturan Auto `LAY-017`, `LAY-018`, dan `LAY-019`
 yang gagal pada paragraf terkonfirmasi. Tinjau rencana, lalu pilih Terapkan
-Perbaikan; hasil hanya tersedia setelah pemeriksaan integritas dan audit ulang.
+Perbaikan Otomatis; hasil hanya tersedia setelah pemeriksaan integritas dan audit ulang.
 Aturan Manual dan Confirm dilewati pada tahap ini. Struktur yang tidak dikenali
 memerlukan review dan hasil tetap perlu diperiksa di Microsoft Word.
 Formatter font `LAY-005` dapat memperbaiki run yang diketahui pada paragraf
@@ -82,7 +88,7 @@ berlaku. Rincian dan keterbatasan ada di [laporan T14](docs/T14_REPORT.md).
 
 Hasil pengujian tiga dokumen representatif dan keterbatasan review visual tersedia
 di [laporan T5](docs/T5_REPORT.md). Pemilik menerima tiga fixture untuk cakupan
-MVP; hasil pemeriksaan manual dan validasi batas ukuran file masih diperlukan.
+MVP; pemeriksaan manual masih diperlukan. Batas ukuran input telah diuji di T14.
 Ringkasan aturan dibaca dari `rules/ppki_rules_all.json`. Metadata `is_implemented`
 tidak berarti validator tersedia. Label penerapan yang belum dipetakan perlu review.
 
@@ -93,27 +99,8 @@ Untuk menjalankan tes loader di lingkungan yang sama:
 .\.venv\Scripts\python -m pytest -q
 ```
 
-Dokumentasi siap pakai untuk membangun **MVP lokal** pemformat skripsi (S1), tesis (S2), dan disertasi (S3). Digunakan sendiri oleh penyedia jasa, sekitar **20–30 dokumen/bulan**.
-
-## Mulai dari sini
-
-1. Buka folder ini sebagai **workspace/repository** di Codex (bukan menyalin prompt panjang saja).
-2. Minta Codex membaca `AGENTS.md` dan `docs/PRD.md`, `docs/ERD.md`, `docs/ARCHITECTURE.md`, `docs/TASKS.md`.
-3. Mulai dari **T0** di `docs/TASKS.md`. Kerjakan **satu task per giliran**; review hasil dan tesnya sebelum melanjutkan.
-4. Gunakan `rules/ppki_rules_all.json` sebagai snapshot resmi dataset; `rules/ppki_rules_mvp25.json` untuk daftar kandidat aturan yang pernah ditandai implemented.
-5. Ketika aplikasi sudah jadi, jalankan di laptop lewat Streamlit. Gunakan **DOCX contoh tanpa data pribadi** untuk pengujian.
-
-## Prompt pertama untuk Codex
-
-```text
-Baca AGENTS.md dan semua file dalam docs/ terlebih dahulu.
-Kita membangun PPKI Academic Formatter untuk penggunaan pribadi 20–30 DOCX per bulan.
-Gunakan rules/*.json yang tersedia; jangan membuat ulang rules PPKI.
-Kerjakan HANYA Task T0 dari docs/TASKS.md.
-Jangan menambah database baru, hosting, Docker, framework agent, atau OpenAI API pada tahap ini.
-Setelah selesai, jalankan pengujian yang relevan dan laporkan: file yang diubah, hasil tes,
-serta batasan yang masih ada. Jangan lanjut ke task lain tanpa instruksi.
-```
+MVP lokal ini ditujukan untuk satu operator pemformat skripsi, tesis dan
+disertasi sekitar 20–30 dokumen per bulan setelah acceptance selesai.
 
 ## Urutan baca
 
