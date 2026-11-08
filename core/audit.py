@@ -1,7 +1,9 @@
 from collections import Counter
 from io import BytesIO
 import re
-from zipfile import BadZipFile
+import posixpath
+from xml.etree import ElementTree as ET
+from zipfile import BadZipFile, ZipFile
 
 from docx import Document
 from docx.opc.exceptions import PackageNotFoundError
@@ -229,6 +231,77 @@ def is_chapter_candidate(paragraph):
 def heading_candidates(data):
     document = Document(BytesIO(data))
     return [(index, paragraph.text) for index, paragraph in enumerate(document.paragraphs, 1) if is_chapter_candidate(paragraph)]
+
+
+def page_number_structure(data: bytes) -> list[dict]:
+    """Describe explicit numbering metadata without asserting page-rule compliance."""
+    word = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    rel = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+    package = "{http://schemas.openxmlformats.org/package/2006/relationships}"
+    try:
+        with ZipFile(BytesIO(data)) as archive:
+            root = ET.fromstring(archive.read("word/document.xml"))
+            relationships = ET.fromstring(archive.read("word/_rels/document.xml.rels"))
+            targets = {}
+            for item in relationships.findall(package + "Relationship"):
+                target = item.get("Target", "")
+                relation_type = item.get("Type", "").rsplit("/", 1)[-1]
+                if item.get("TargetMode") == "External" or relation_type not in {"header", "footer"}:
+                    continue
+                path = posixpath.normpath(posixpath.join("word", target)) if not target.startswith("/") else target.lstrip("/")
+                if path.startswith("word/"):
+                    targets[item.get("Id")] = (relation_type, path)
+            body = root.find(word + "body")
+            if body is None:
+                raise ValueError("Bagian body DOCX tidak ditemukan.")
+            sections = []
+            for child in body:
+                if child.tag == word + "p":
+                    properties = child.find(word + "pPr")
+                    section = properties.find(word + "sectPr") if properties is not None else None
+                    if section is not None:
+                        sections.append(section)
+                elif child.tag == word + "sectPr":
+                    sections.append(child)
+            inherited = {}
+            result = []
+            for index, section in enumerate(sections, 1):
+                numbering = section.find(word + "pgNumType")
+                fmt = numbering.get(word + "fmt") if numbering is not None else None
+                start = numbering.get(word + "start") if numbering is not None else None
+                references = []
+                explicit = set()
+                for kind in ("header", "footer"):
+                    for node in section.findall(word + kind + "Reference"):
+                        variant = node.get(word + "type", "default")
+                        explicit.add((kind, variant))
+                        target = targets.get(node.get(rel + "id"))
+                        # An invalid or missing relationship must not inherit a previous target.
+                        inherited[(kind, variant)] = target[1] if target and target[0] == kind else None
+                        references.append(f"{kind}/{variant}: " + ("referensi eksplisit" if inherited[(kind, variant)] else "referensi tidak valid"))
+                if not references:
+                    references.append("Tidak ada referensi eksplisit pada section ini")
+                fields = []
+                for (kind, variant), path in sorted(inherited.items()):
+                    scope = "eksplisit" if (kind, variant) in explicit else "diwariskan"
+                    if path is None:
+                        fields.append(f"{kind}/{variant} ({scope}): referensi tidak dapat dibaca")
+                        continue
+                    try:
+                        part = ET.fromstring(archive.read(path))
+                    except (KeyError, ET.ParseError):
+                        fields.append(f"{kind}/{variant} ({scope}): bagian tidak dapat dibaca")
+                        continue
+                    instructions = [node.get(word + "instr", "") for node in part.iter(word + "fldSimple")]
+                    instructions.extend(node.text or "" for node in part.iter(word + "instrText"))
+                    has_page = any(re.search(r"^\s*PAGE(?=\s|\\|$)", text, re.IGNORECASE) for text in instructions)
+                    fields.append(f"{kind}/{variant} ({scope}): " + ("instruksi PAGE ditemukan" if has_page else "PAGE tidak terdeteksi; field kompleks perlu review"))
+                result.append({"section": index, "format_nomor": fmt or "Tidak eksplisit", "restart": start if start is not None else "Tidak eksplisit", "header_footer": "; ".join(references), "field_PAGE": "; ".join(fields) or "Tidak ada referensi yang dapat diperiksa", "status": "needs_review", "pesan": "Struktur saja; jenis bagian, field efektif, dan hasil render Word belum diverifikasi."})
+            if not sections:
+                raise ValueError("Section DOCX tidak ditemukan.")
+            return result
+    except (BadZipFile, KeyError, ET.ParseError, OSError) as exc:
+        raise ValueError("Struktur penomoran DOCX tidak dapat dibaca.") from exc
 
 
 def heading_findings(document, rule, confirmed):

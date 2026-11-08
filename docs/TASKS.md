@@ -81,6 +81,14 @@ Satu pemanggilan API model yang **konfigurasinya tidak hardcode** untuk usulan k
 
 **Selesai jika:** mode tanpa AI tetap berjalan sama baiknya, tidak ada data keluar tanpa persetujuan, biaya dan gagal API ditangani jelas.
 
+## T8A — Diagnostik penomoran halaman read-only [cakupan terbatas]
+
+Struktur section, format/restart eksplisit, referensi header/footer, dan instruksi
+PAGE dapat ditampilkan untuk review. `PPKI-LAY-023`, `PPKI-LAY-024`, dan aturan
+penomoran lain yang berkunci `manual.not-implemented` tetap `not_supported`;
+tidak ada klaim lulus/gagal maupun formatter nomor halaman. Penomoran hasil
+render dan cakupan bagian dokumen perlu pemeriksaan manual di Word.
+
 ## Definisi Done setiap task
 - [ ] Perubahan kode sesuai lingkup task dan tidak mengubah aturan sumber.
 - [ ] Tes yang relevan ada dan dijalankan; hasil dilaporkan.

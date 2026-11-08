@@ -7,7 +7,7 @@ import csv
 from io import StringIO
 
 from core.rules import filter_rules, load_rules
-from core.audit import audit_docx, summarize, font_candidates, heading_candidates
+from core.audit import audit_docx, summarize, font_candidates, heading_candidates, page_number_structure
 from core.formatter import format_docx, plan_changes, skipped_changes
 
 
@@ -90,6 +90,12 @@ if submitted:
             st.caption("Hasil paragraf hanya mencakup style yang dipilih dan dikonfirmasi; paragraf lain memerlukan pemeriksaan manual. Usulan perubahan hanya dry-run.")
             st.write(f"Diperiksa: {counts['diperiksa']} | Sesuai: {counts['sesuai']} | Tidak sesuai: {counts['tidak_sesuai']} | Tidak didukung: {counts['tidak_didukung']} | Perlu review: {counts['perlu_review']}")
             st.dataframe(findings, hide_index=True)
+            st.subheader("Struktur penomoran halaman")
+            st.caption("Diagnostik read-only, bukan bukti kepatuhan. LAY-023 dan LAY-024 tetap belum didukung; penomoran aktual perlu review di Word.")
+            try:
+                st.dataframe(page_number_structure(uploaded.getvalue()), hide_index=True)
+            except ValueError as exc:
+                st.warning(str(exc))
             body_confirmed = bool(confirmed and style_id)
             plan = plan_changes(uploaded.getvalue(), rules, degree, style_id, body_confirmed, heading_confirmed, heading_only)
             signature = sha256(uploaded.getvalue() + json.dumps(rules, sort_keys=True).encode()).hexdigest()

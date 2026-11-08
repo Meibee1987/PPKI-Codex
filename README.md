@@ -45,6 +45,12 @@ dapat memperbaiki `HDG-003`, `004`, dan `006` yang Auto pada kandidat yang
 dikonfirmasi dan aman. Pilih opsi rencana khusus heading untuk menjaga halaman dan
 teks isi dari perbaikan lain. Aturan heading lainnya belum didukung.
 
+Diagnostik penomoran halaman menampilkan format dan restart yang eksplisit,
+referensi header/footer, serta instruksi PAGE yang terdeteksi per section. Ini
+tidak menentukan nomor halaman hasil render atau kepatuhan: `PPKI-LAY-023` dan
+`PPKI-LAY-024` tetap belum didukung karena kunci validasinya `manual.not-implemented`.
+Hasil diagnostik memerlukan pemeriksaan di Word; tidak ada formatter nomor halaman.
+
 Hasil pengujian tiga dokumen representatif dan keterbatasan review visual tersedia
 di [laporan T5](docs/T5_REPORT.md). Pemilik menerima tiga fixture untuk cakupan
 MVP; hasil pemeriksaan manual dan validasi batas ukuran file masih diperlukan.
