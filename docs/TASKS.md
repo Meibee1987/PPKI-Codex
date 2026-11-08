@@ -66,6 +66,12 @@ batas ukuran file; perubahan ini tidak menyatakan T5 selesai.
 
 **Selesai jika:** setiap handler baru punya test, tidak mengubah isi tulisan, dan tidak mengklaim support untuk aturan tanpa handler.
 
+T7A (audit heading read-only) selesai untuk cakupan terbatas: `PPKI-HDG-003`,
+`004`, dan `006` pada Heading 1 yang dikonfirmasi dan memuat nomor BAB serta
+judul dalam satu paragraf sederhana. Heading 2 dan 3 baru ditampilkan sebagai
+kandidat; aturan lainnya tetap belum didukung atau perlu review. Formatter
+heading dan abstrak belum dibuat. T5 masih menunggu pemeriksaan akhir Word.
+
 ## T7 — AI opsional [P2, hanya kalau terbukti dibutuhkan]
 Satu pemanggilan API model yang **konfigurasinya tidak hardcode** untuk usulan klasifikasi paragraf ambigu, **opt-in per dokumen**. Tidak boleh mengirim file penuh otomatis. Hasil AI berupa usulan yang divalidasi dan disetujui sebelum menyentuh DOCX.
 

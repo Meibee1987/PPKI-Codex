@@ -36,6 +36,13 @@ T4B juga mendukung perbaikan halaman per section untuk `LAY-003` dan
 berkolom, atau tidak pasti dilewati untuk review. Audit dan format paragraf
 tetap memerlukan pemilihan style dan konfirmasi cakupan.
 
+Audit heading read-only menampilkan kandidat Heading 1 yang berpola BAB. Operator
+mengonfirmasi setiap kandidat secara terpisah; kandidat lain tetap perlu review.
+Aturan `PPKI-HDG-003`, `004`, dan `006` diperiksa terbatas pada paragraf teks
+sederhana yang memuat nomor BAB dan judul bersama. Bold yang tidak eksplisit,
+penomoran otomatis, dan konteks yang ambigu perlu review. Aturan heading lainnya
+belum didukung; tidak ada formatter heading.
+
 Hasil pengujian tiga dokumen representatif dan keterbatasan review visual tersedia
 di [laporan T5](docs/T5_REPORT.md). Pemilik menerima tiga fixture untuk cakupan
 MVP; hasil pemeriksaan manual dan validasi batas ukuran file masih diperlukan.

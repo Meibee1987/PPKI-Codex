@@ -7,7 +7,7 @@ import csv
 from io import StringIO
 
 from core.rules import filter_rules, load_rules
-from core.audit import audit_docx, summarize, font_candidates
+from core.audit import audit_docx, summarize, font_candidates, heading_candidates
 from core.formatter import format_docx, plan_changes, skipped_changes
 
 
@@ -40,7 +40,8 @@ if uploaded is not None:
     except ValueError as exc:
         st.error(str(exc))
 
-st.caption("Untuk dokumen dummy T4A, pilih Body Text (BodyText).")
+st.subheader("Audit teks isi")
+st.caption("Pilihan ini opsional untuk audit halaman dan BAB. Untuk dokumen dummy T4A, pilih Body Text (BodyText).")
 style_order = sorted(styles, key=lambda key: (0 if key == "BodyText" else 1 if key == "Normal" else 2, styles[key]["name"].casefold()))
 style_id = st.selectbox(
     "Style kandidat teks isi", [None, *style_order],
@@ -54,8 +55,20 @@ if style_id:
     for index, text in paragraphs[:3]:
         st.text(f"Paragraf {index}: {text[:200]}")
 
+st.subheader("Audit Heading BAB")
+candidates = heading_candidates(uploaded.getvalue()) if uploaded is not None and styles else []
+st.write(f"Kandidat judul BAB (Heading 1): {len(candidates)}")
+st.caption("Konfirmasi setiap kandidat secara terpisah. Heading lain tidak otomatis dianggap BAB.")
+
 with st.form("audit_form", clear_on_submit=True):
+    st.write("Konfirmasi teks isi (opsional untuk audit BAB):")
     confirmed = st.checkbox("Saya telah memeriksa dan memastikan semua paragraf kandidat style ini adalah teks isi utama untuk audit ini.")
+    st.write("Konfirmasi kandidat BAB:")
+    heading_confirmed = set()
+    document_key = sha256(uploaded.getvalue()).hexdigest() if uploaded is not None else "none"
+    for index, text in candidates:
+        if st.checkbox(f"Paragraf {index}: {text}", key=f"chapter_{document_key}_{index}"):
+            heading_confirmed.add(index)
     submitted = st.form_submit_button("Audit")
 
 if submitted:
@@ -67,7 +80,7 @@ if submitted:
         st.error("Audit tidak dapat dilakukan karena aturan gagal dimuat.")
     else:
         try:
-            findings = audit_docx(uploaded.getvalue(), rules, degree, style_id, confirmed and style_id is not None)
+            findings = audit_docx(uploaded.getvalue(), rules, degree, style_id, confirmed and style_id is not None, heading_confirmed)
         except ValueError as exc:
             st.error(str(exc))
         else:
@@ -80,7 +93,7 @@ if submitted:
             plan = plan_changes(uploaded.getvalue(), rules, degree, style_id, body_confirmed)
             signature = sha256(uploaded.getvalue() + json.dumps(rules, sort_keys=True).encode()).hexdigest()
             skipped = skipped_changes(uploaded.getvalue(), rules, degree, findings, plan, style_id, body_confirmed)
-            st.session_state.audit_t4a = {"signature": signature, "degree": degree, "style": style_id, "confirmed": body_confirmed, "plan": plan, "before": counts, "skipped": skipped}
+            st.session_state.audit_t4a = {"signature": signature, "degree": degree, "style": style_id, "confirmed": body_confirmed, "heading_confirmed": heading_confirmed, "plan": plan, "before": counts, "skipped": skipped}
 
 snapshot = st.session_state.get("audit_t4a")
 if snapshot and uploaded is not None and 'rules' in locals():
@@ -95,6 +108,8 @@ if snapshot and uploaded is not None and 'rules' in locals():
                     output, after, changes = format_docx(uploaded.getvalue(), rules, degree, style_id, snapshot["confirmed"])
                     if changes != snapshot["plan"]:
                         raise ValueError("Rencana berubah; lakukan audit kembali.")
+                    if snapshot["heading_confirmed"]:
+                        after = audit_docx(output, rules, degree, style_id, snapshot["confirmed"], snapshot["heading_confirmed"])
                 except (ValueError, OSError) as exc:
                     st.error(f"Perbaikan gagal divalidasi: {exc}")
                 else:

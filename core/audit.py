@@ -1,5 +1,6 @@
 from collections import Counter
 from io import BytesIO
+import re
 from zipfile import BadZipFile
 
 from docx import Document
@@ -23,6 +24,12 @@ PARAGRAPH_RULES = {
     "body.line-spacing-single": ("PPKI-LAY-017", "Single / 1.0", "line_spacing"),
     "body.first-line-indent-1cm": ("PPKI-LAY-018", "1 cm", "first_line_indent"),
     "body.justified": ("PPKI-LAY-019", "Justified", "alignment"),
+}
+
+HEADING_RULES = {
+    "heading.chapter-uppercase": ("PPKI-HDG-003", "UPPERCASE", "Judul bab ditulis dengan huruf kapital."),
+    "heading.chapter-bold": ("PPKI-HDG-004", "Bold", "Judul bab dicetak tebal."),
+    "heading.chapter-centered": ("PPKI-HDG-006", "Centered", "Nomor dan judul bab berada di tengah."),
 }
 
 
@@ -215,7 +222,69 @@ def paragraph_findings(document, rule, attribute, body_style, confirmed):
     return results
 
 
-def audit_docx(data: bytes, rules: list[dict], degree: str, body_style: str | None = None, confirmed: bool = False) -> list[dict]:
+def is_chapter_candidate(paragraph):
+    return paragraph.style.style_id == "Heading1" and bool(re.match(r"^\s*BAB\s+[IVXLCDM]+(?=\s|[.:;\-]|$)", paragraph.text, flags=re.IGNORECASE))
+
+
+def heading_candidates(data):
+    document = Document(BytesIO(data))
+    return [(index, paragraph.text) for index, paragraph in enumerate(document.paragraphs, 1) if is_chapter_candidate(paragraph)]
+
+
+def heading_findings(document, rule, confirmed):
+    """Check confirmed Heading 1 candidates with an explicit BAB number and title."""
+    results = []
+    for index, paragraph in enumerate(document.paragraphs, 1):
+        if not is_chapter_candidate(paragraph):
+            continue
+        location = f"paragraf:{index}"
+        if index not in confirmed:
+            results.append(finding(rule, "needs_review", location, "Tidak diperiksa", "Kandidat BAB belum dikonfirmasi operator."))
+            continue
+        simple = all(child.tag in (qn("w:pPr"), qn("w:r"), qn("w:bookmarkStart"), qn("w:bookmarkEnd")) for child in paragraph._p)
+        simple = simple and all(all(child.tag in (qn("w:rPr"), qn("w:t")) for child in run._r) for run in paragraph.runs)
+        styles = []
+        style, seen = paragraph.style, set()
+        while style is not None and style.style_id not in seen:
+            seen.add(style.style_id)
+            styles.append(style.element.pPr)
+            style = style.base_style
+        properties = [paragraph._p.pPr, *styles]
+        numbered = any(ppr is not None and ppr.find(qn("w:numPr")) is not None for ppr in properties)
+        match = re.fullmatch(r"\s*BAB\s+[IVXLCDM]+\s+(.+?)\s*", paragraph.text, flags=re.IGNORECASE | re.DOTALL)
+        if not simple or numbered or not match or not any(c.isalpha() for c in match.group(1)):
+            results.append(finding(rule, "needs_review", location, "Tidak dapat diverifikasi", "Judul BAB dan nomor harus berupa teks sederhana dalam satu paragraf; numbering atau konteks lain perlu review."))
+            continue
+        if rule["rule_code"] == "PPKI-HDG-003":
+            title = match.group(1)
+            status = "pass" if title.isupper() else "fail"
+            actual = "Huruf kapital" if status == "pass" else "Mengandung huruf nonkapital"
+        elif rule["rule_code"] == "PPKI-HDG-004":
+            values, offset = [], 0
+            for run in paragraph.runs:
+                end = offset + len(run.text)
+                title_part = run.text[max(0, match.start(1) - offset):max(0, match.end(1) - offset)]
+                if title_part.strip():
+                    values.append(run.bold)
+                offset = end
+            if any(value is False for value in values):
+                status, actual = "fail", "Ada run tidak tebal"
+            elif not values or any(value is None for value in values):
+                status, actual = "needs_review", "Ketebalan efektif tidak dapat dipastikan"
+            else:
+                status, actual = "pass", "Semua run tebal"
+        else:
+            alignment = paragraph_value(paragraph, "alignment")
+            if alignment is None:
+                status, actual = "needs_review", "Perataan tidak diketahui"
+            else:
+                status = "pass" if alignment == WD_ALIGN_PARAGRAPH.CENTER else "fail"
+                actual = str(alignment)
+        results.append(finding(rule, status, location, actual, "Hanya kandidat BAB yang dikonfirmasi dan dapat diverifikasi diperiksa."))
+    return results or [finding(rule, "needs_review", "dokumen", "Tidak diperiksa", "Tidak ada kandidat Heading 1 yang dapat diperiksa.")]
+
+
+def audit_docx(data: bytes, rules: list[dict], degree: str, body_style: str | None = None, confirmed: bool = False, heading_confirmed: set[int] | None = None) -> list[dict]:
     """Audit in memory; never save or modify the uploaded DOCX."""
     try:
         document = Document(BytesIO(data))
@@ -240,6 +309,8 @@ def audit_docx(data: bytes, rules: list[dict], degree: str, body_style: str | No
             findings.extend(font_findings(document, rule, body_style, confirmed))
         elif rule["validation_key"] in PARAGRAPH_RULES and (rule["rule_code"], rule["expected_value_pattern"]) == PARAGRAPH_RULES[rule["validation_key"]][:2]:
             findings.extend(paragraph_findings(document, rule, PARAGRAPH_RULES[rule["validation_key"]][2], body_style, confirmed))
+        elif rule["validation_key"] in HEADING_RULES and (rule["rule_code"], rule["expected_value_pattern"], rule["official_requirement"]) == HEADING_RULES[rule["validation_key"]]:
+            findings.extend(heading_findings(document, rule, heading_confirmed or set()))
         else:
             findings.append(finding(rule, "not_supported", "dokumen", "—", "Validator belum tersedia atau aturan tidak cocok dengan mapping yang diuji."))
     for rule in review:
