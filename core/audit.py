@@ -312,6 +312,111 @@ def illustration_structure(data: bytes) -> dict:
     return {"tabel": tables, "gambar": images, "caption": captions, "objek_kompleks": complex_objects}
 
 
+def citation_diagnostics(data: bytes) -> dict:
+    """Conservative author/year candidates; never determines rule compliance."""
+    try:
+        document = Document(BytesIO(data))
+    except (PackageNotFoundError, BadZipFile, KeyError, ValueError, OSError) as exc:
+        raise ValueError("Struktur sitasi DOCX tidak dapat dibaca.") from exc
+    name = r"[A-Z][a-z]+(?:[-'][A-Z]?[a-z]+)*"
+    year = r"(?:19|20)\d{2}[a-z]?"
+    authors = rf"({name})(?:\s+(?:dan|&)\s+({name}))?"
+    narrative = re.compile(rf"\b{authors}\s*\(({year})\)")
+    parenthetical = re.compile(r"\(([^()]*)\)")
+    segment = re.compile(rf"\s*{authors}\s*,?\s+({year})\s*$")
+    reference = re.compile(rf"^({name})\s+(?:[A-Z]{{1,4}}\.?)(?:\s*,\s*{name}\s+[A-Z]{{1,4}}\.?)*\s*\.\s*({year})\s*\.")
+    ref_author = re.compile(rf"\b({name})\s+[A-Z]{{1,4}}\.?")
+    non_names = {"januari", "februari", "maret", "april", "mei", "juni", "juli", "agustus", "september", "oktober", "november", "desember", "tabel", "gambar", "bab", "lampiran", "halaman", "tahun"}
+    headings = [i for i, p in enumerate(document.paragraphs) if p.text.strip().casefold() == "daftar pustaka" and p.style.style_id.startswith("Heading")]
+    refs, citations, notes = [], [], []
+    start = headings[0] if len(headings) == 1 else None
+    end = len(document.paragraphs)
+    if start is not None:
+        for index in range(start + 1, len(document.paragraphs)):
+            if document.paragraphs[index].style.style_id.startswith("Heading"):
+                end = index
+                break
+    else:
+        notes.append("Heading DAFTAR PUSTAKA tidak ditemukan secara unik; pasangan tidak dapat dipastikan.")
+
+    def simple(paragraph):
+        return all(child.tag in (qn("w:pPr"), qn("w:r"), qn("w:bookmarkStart"), qn("w:bookmarkEnd")) for child in paragraph._p) and all(all(child.tag in (qn("w:rPr"), qn("w:t")) for child in run._r) for run in paragraph.runs)
+
+    reference_paragraphs = set()
+    if start is not None:
+        for index in range(start + 1, end):
+            paragraph = document.paragraphs[index]
+            text = paragraph.text.strip()
+            if not text:
+                continue
+            found = reference.match(text)
+            if found:
+                names = ref_author.findall(text[:found.end()])
+                key = (tuple(n.casefold() for n in names), found.group(2).casefold())
+                refs.append({"lokasi": f"paragraf:{index + 1}", "teks": text, "penulis": ", ".join(names), "tahun": found.group(2), "kunci": key, "ambigu": not simple(paragraph), "alasan": "Struktur entri kompleks" if not simple(paragraph) else "Kandidat entri; perlu verifikasi manusia"})
+                reference_paragraphs.add(index)
+            elif paragraph.style.style_id in {"Normal", "Bibliography"}:
+                # A non-matching paragraph may continue the preceding reference.
+                if refs and index - 1 in reference_paragraphs:
+                    refs[-1]["ambigu"] = True
+                    refs[-1]["alasan"] = "Paragraf berikutnya mungkin merupakan lanjutan entri."
+                refs.append({"lokasi": f"paragraf:{index + 1}", "teks": text, "penulis": "Tidak diketahui", "tahun": "Tidak diketahui", "kunci": None, "ambigu": True, "alasan": "Kemungkinan entri/lanjutan tidak dapat dipastikan."})
+                reference_paragraphs.add(index)
+
+    for index, paragraph in enumerate(document.paragraphs):
+        if index in reference_paragraphs or paragraph.style.style_id.startswith("Heading") or paragraph.style.style_id == "Caption":
+            continue
+        text = paragraph.text
+        if not text.strip():
+            continue
+        uncertain = not simple(paragraph) or (start is not None and start < index < end)
+        spans = []
+        for match in narrative.finditer(text):
+            names = tuple(x.casefold() for x in match.group(1, 2) if x)
+            if any(n in non_names for n in names):
+                spans.append(match.span())
+                continue
+            citations.append({"lokasi": f"paragraf:{index + 1}", "teks": match.group(0), "penulis": ", ".join(names), "tahun": match.group(3), "kunci": (names, match.group(3).casefold()), "ambigu": uncertain, "alasan": "Konteks atau struktur perlu review" if uncertain else "Kandidat naratif; perlu verifikasi manusia"})
+            spans.append(match.span())
+        for paren in parenthetical.finditer(text):
+            if any(paren.start() < end_span and paren.end() > start_span for start_span, end_span in spans):
+                continue
+            parts = paren.group(1).split(";")
+            matches = [segment.fullmatch(part) for part in parts]
+            if re.match(r"\s*(?:" + "|".join(non_names) + r")\b", paren.group(1), re.IGNORECASE):
+                continue
+            if all(matches):
+                for match in matches:
+                    names = tuple(x.casefold() for x in match.group(1, 2) if x)
+                    if any(n in non_names for n in names):
+                        continue
+                    citations.append({"lokasi": f"paragraf:{index + 1}", "teks": match.group(0).strip(), "penulis": ", ".join(names), "tahun": match.group(3), "kunci": (names, match.group(3).casefold()), "ambigu": uncertain, "alasan": "Konteks atau struktur perlu review" if uncertain else "Kandidat dalam kurung; perlu verifikasi manusia"})
+            elif re.search(rf"\b{year}\b", paren.group(1)) and re.match(r"\s*[A-Za-z]", paren.group(1)):
+                citations.append({"lokasi": f"paragraf:{index + 1}", "teks": paren.group(0), "penulis": "Tidak diketahui", "tahun": "Tidak diketahui", "kunci": None, "ambigu": True, "alasan": "Pola dalam kurung tidak dapat diuraikan dengan yakin."})
+
+    comparisons = []
+    for item in citations:
+        matches = [ref for ref in refs if item["kunci"] is not None and ref["kunci"] == item["kunci"]]
+        if item["ambigu"] or start is None or len(matches) > 1 or any(ref["ambigu"] for ref in matches):
+            status = "needs_review"
+        elif len(matches) == 1:
+            status = "mungkin_cocok"
+        else:
+            status = "kandidat_referensi_tidak_ditemukan"
+        comparisons.append({"jenis": "sitasi", "lokasi": item["lokasi"], "teks": item["teks"], "pasangan": ", ".join(ref["lokasi"] for ref in matches) or "—", "status": status, "alasan": item["alasan"]})
+    for ref in refs:
+        matches = [item for item in citations if ref["kunci"] is not None and item["kunci"] == ref["kunci"]]
+        duplicates = [other for other in refs if ref["kunci"] is not None and other["kunci"] == ref["kunci"]]
+        if ref["ambigu"] or len(duplicates) > 1 or any(item["ambigu"] for item in matches):
+            status = "needs_review"
+        elif matches:
+            status = "mungkin_cocok"
+        else:
+            status = "kandidat_sitasi_tidak_ditemukan"
+        comparisons.append({"jenis": "referensi", "lokasi": ref["lokasi"], "teks": ref["teks"], "pasangan": ", ".join(item["lokasi"] for item in matches) or "—", "status": status, "alasan": ref["alasan"]})
+    return {"sitasi": citations, "referensi": refs, "perbandingan": comparisons, "catatan": notes}
+
+
 def page_number_structure(data: bytes) -> list[dict]:
     """Describe explicit numbering metadata without asserting page-rule compliance."""
     word = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"

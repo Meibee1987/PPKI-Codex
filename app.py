@@ -7,7 +7,7 @@ import csv
 from io import StringIO
 
 from core.rules import filter_rules, load_rules
-from core.audit import audit_docx, summarize, font_candidates, heading_candidates, page_number_structure, illustration_structure
+from core.audit import audit_docx, summarize, font_candidates, heading_candidates, page_number_structure, illustration_structure, citation_diagnostics
 from core.formatter import format_docx, plan_changes, skipped_changes
 
 
@@ -119,6 +119,17 @@ if submitted:
                 if related_findings:
                     st.write("Status aturan terkait")
                     st.dataframe(related_findings, hide_index=True)
+            st.subheader("Audit Sitasi dan Daftar Pustaka")
+            diagnostics = citation_diagnostics(uploaded.getvalue())
+            rows = diagnostics["perbandingan"]
+            st.write(f"Kandidat sitasi: {len(diagnostics['sitasi'])} | Kandidat referensi: {len(diagnostics['referensi'])} | Sitasi mungkin cocok: {sum(row['jenis'] == 'sitasi' and row['status'] == 'mungkin_cocok' for row in rows)} | Sitasi tanpa kandidat referensi: {sum(row['status'] == 'kandidat_referensi_tidak_ditemukan' for row in rows)} | Referensi tanpa kandidat sitasi: {sum(row['status'] == 'kandidat_sitasi_tidak_ditemukan' for row in rows)} | Perlu review: {sum(row['status'] == 'needs_review' for row in rows)}")
+            st.caption("Pemeriksaan silang hanya diagnostik kandidat, bukan bukti kepatuhan PPKI. Aturan manual.not-implemented tetap tidak didukung; hasil dan pasangan perlu diperiksa manusia.")
+            citation_rules = [r for r in rules if r["domain"] in {"CIT", "REF"} or any(term in (r["element"] + " " + r["official_requirement"]).casefold() for term in ("sitasi", "kutipan", "daftar pustaka", "perujukan", "pengutipan", "mengutip", "rujukan", "referensi"))]
+            st.write(f"Aturan terkait: {len(citation_rules)}; validator manual yang belum didukung: {sum(r['validation_key'] == 'manual.not-implemented' for r in citation_rules)}. Konteks penerapan beberapa aturan juga memerlukan review.")
+            for note in diagnostics["catatan"]:
+                st.warning(note)
+            if rows:
+                st.dataframe(rows, hide_index=True)
             body_confirmed = bool(confirmed and style_id)
             plan = plan_changes(uploaded.getvalue(), rules, degree, style_id, body_confirmed, heading_confirmed, heading_only)
             signature = sha256(uploaded.getvalue() + json.dumps(rules, sort_keys=True).encode()).hexdigest()

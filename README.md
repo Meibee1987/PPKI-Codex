@@ -57,6 +57,12 @@ mengonfirmasi dugaan tersebut, tetapi hasilnya tetap perlu review: semua aturan
 terkait yang ditemukan berkunci `manual.not-implemented` dan belum didukung.
 Lihat [laporan T9A](docs/T9A_REPORT.md) untuk cakupan dan keterbatasannya.
 
+T10A menampilkan diagnostik read-only kandidat sitasi dan daftar pustaka tanpa
+memerlukan konfirmasi style isi. Kecocokan penulis/tahun adalah kemungkinan,
+bukan bukti kepatuhan; periksa kasus ambigu dan referensi yang belum ditemukan
+secara manual. Aturan manual tetap belum memiliki validator kepatuhan. Rincian
+dan hasil Dummy Master tersedia di [laporan T10A](docs/T10A_REPORT.md).
+
 Hasil pengujian tiga dokumen representatif dan keterbatasan review visual tersedia
 di [laporan T5](docs/T5_REPORT.md). Pemilik menerima tiga fixture untuk cakupan
 MVP; hasil pemeriksaan manual dan validasi batas ukuran file masih diperlukan.

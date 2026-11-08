@@ -96,6 +96,14 @@ Sebanyak 76 aturan terkait yang ditemukan semuanya `manual.not-implemented` dan
 tetap `not_supported`; tidak ada validator kepatuhan atau formatter untuknya.
 Rincian tersedia di [laporan T9A](T9A_REPORT.md).
 
+## T10A — Diagnostik sitasi dan daftar pustaka read-only [selesai untuk cakupan terbatas]
+
+Kandidat penulis/tahun dan entri setelah heading DAFTAR PUSTAKA dibandingkan
+secara konservatif, tanpa klaim kepatuhan atau perubahan DOCX. Semua 65 aturan
+terkait yang ditemukan masih menggunakan `manual.not-implemented`, sehingga
+tidak ada validator aturan sitasi yang didukung. Hasil ambigu dan konteks
+aplikabilitas tetap memerlukan review. Rincian: [laporan T10A](T10A_REPORT.md).
+
 ## Definisi Done setiap task
 - [ ] Perubahan kode sesuai lingkup task dan tidak mengubah aturan sumber.
 - [ ] Tes yang relevan ada dan dijalankan; hasil dilaporkan.
