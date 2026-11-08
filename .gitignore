@@ -7,3 +7,4 @@ __pycache__/
 .env.*
 *_formatted.docx
 *_perubahan.csv
+private_tests/

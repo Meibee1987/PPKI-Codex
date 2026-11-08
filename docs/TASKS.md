@@ -137,6 +137,26 @@ Dokumentasi kemampuan, panduan dan keterbatasan telah disiapkan. Acceptance
 dokumen nyata serta pemeriksaan visual akhir Word masih PENDING; belum siap
 produksi atau pemakaian dokumen pelanggan. Lihat [laporan rilis](T15_RELEASE_REPORT.md).
 
+## v1.1 — Pengenalan struktur read-only [cakupan diagnostik]
+
+Pengenalan kandidat dengan style, nomor dan konteks tersedia untuk review;
+hasilnya tidak mengubah validator, formatter atau konfirmasi lama. Keterbatasan
+dan hasil pengujian tercatat di [laporan v1.1](V1_1_STRUCTURE_REPORT.md).
+
+## v1.2A — Pratinjau cakupan otomatis [dry-run eksperimental]
+
+Kandidat per aturan ditampilkan tanpa diterapkan ke formatter. Pengukuran pada
+fixture dan tesis lokal serta keterbatasan tercatat di
+[laporan cakupan](V1_2A_SAFE_SCOPE_REPORT.md). Belum ada dasar untuk
+mengaktifkan formatting otomatis berdasarkan klasifikasi.
+
+## v1.2A.1 — Evaluasi cakupan per aturan [dry-run eksperimental]
+
+Kelayakan pemeriksaan, ketidaksesuaian dan keamanan kandidat dipisahkan.
+Penanda ejaan/bookmark dianalisis pada salinan tanpa melonggarkan perlindungan
+field/objek atau mengubah formatter. Acuan operator untuk 40 sampel lokal masih
+PENDING. Lihat [laporan perbaikan cakupan](V1_2A1_SCOPE_IMPROVEMENT.md).
+
 ## Definisi Done setiap task
 - [ ] Perubahan kode sesuai lingkup task dan tidak mengubah aturan sumber.
 - [ ] Tes yang relevan ada dan dijalankan; hasil dilaporkan.

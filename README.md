@@ -73,6 +73,17 @@ T11 menampilkan urutan kandidat bagian dari style Title dan Heading 1 secara
 read-only. Identitas, bagian yang belum ditemukan dan urutan tetap perlu review;
 inventaris ini bukan validasi kepatuhan. Lihat [laporan T11](docs/T11_REPORT.md).
 
+v1.1 menambahkan pengenalan struktur kandidat read-only, termasuk BAB angka
+Romawi tanpa kata BAB. Hasil tersebut belum digunakan sebagai cakupan formatter;
+konfirmasi lama tetap diperlukan. Lihat [laporan v1.1](docs/V1_1_STRUCTURE_REPORT.md).
+
+v1.2A menambahkan pratinjau cakupan eksperimental read-only. Label `auto_safe`
+belum memberi izin untuk formatting; lihat [laporan cakupan](docs/V1_2A_SAFE_SCOPE_REPORT.md).
+
+v1.2A.1 memisahkan `eligible`, `needs_change` dan `safe_to_apply` per aturan.
+Kandidat dengan identitas isi yang belum dikonfirmasi tetap membutuhkan review;
+lihat [evaluasi cakupan](docs/V1_2A1_SCOPE_IMPROVEMENT.md).
+
 Tampilan T12 memisahkan upload, audit dan ringkasan, detail diagnostik, serta
 rencana perbaikan dan unduhan. Alasan perubahan yang dilewati tersedia dalam
 expander. Lihat [laporan T12](docs/T12_REPORT.md).

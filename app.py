@@ -11,6 +11,8 @@ from io import StringIO
 from core.rules import filter_rules, load_rules
 from core.audit import audit_docx, summarize, font_candidates, heading_candidates, page_number_structure, illustration_structure, citation_diagnostics, document_structure, validate_docx_input
 from core.formatter import format_docx, plan_changes, skipped_changes
+from core.structure import recognize_structure, safe_format_scope
+import core.operator_review as operator_review
 
 
 st.set_page_config(page_title="PPKI Academic Formatter")
@@ -174,6 +176,21 @@ if submitted:
             if rows:
                 st.dataframe(rows, hide_index=True)
             st.subheader("Audit Struktur Dokumen")
+            recognized = recognize_structure(uploaded.getvalue())
+            counts_structure = Counter(item["jenis"] for item in recognized)
+            st.write(f"Pengenalan struktur (kandidat): BAB {counts_structure['bab']} | Subbab {counts_structure['subbab'] + counts_structure['sub_subbab']} | Teks isi {counts_structure['teks_isi']} | Caption tabel {counts_structure['caption_tabel']} | Caption gambar {counts_structure['caption_gambar']} | Perlu review {sum(item['status'] == 'needs_review' for item in recognized)}")
+            st.caption("Pengenalan read-only; tidak mengubah cakupan audit atau perbaikan dan bukan bukti kepatuhan PPKI.")
+            with st.expander("Hasil pengenalan struktur dan contoh perlu review"):
+                st.dataframe(recognized, hide_index=True)
+            scope = safe_format_scope(uploaded.getvalue(), rules, degree)
+            scope_counts = Counter(item["keputusan"] for item in scope)
+            st.write(f"Pratinjau cakupan eksperimental: auto_safe {scope_counts['auto_safe']} | needs_review {scope_counts['needs_review']} | protected {scope_counts['protected']} | Paragraf dengan usulan perubahan {sum(bool(item['aturan_berubah']) for item in scope)}")
+            st.write(f"Paragraf eligible: {sum(any(c['eligible'] for c in item['rule_decisions']) for item in scope)} | Paragraf needs_change: {sum(any(c['needs_change'] is True for c in item['rule_decisions']) for item in scope)} | Paragraf safe_to_apply: {sum(any(c['safe_to_apply'] for c in item['rule_decisions']) for item in scope)}")
+            st.caption("Dry-run eksperimental: eligible berarti layak diperiksa; needs_change berarti nilainya tidak sesuai; safe_to_apply menilai perubahan teknis per aturan, bukan izin menjalankan formatter. Nilai yang sudah sesuai tetap dapat dinilai aman. Kandidat Normal atau konteks ambigu tetap membutuhkan konfirmasi; bantuan AI belum tersedia.")
+            with st.expander("Detail pratinjau cakupan"):
+                st.dataframe([{key: value for key, value in row.items() if key != 'rule_decisions'} for row in scope], hide_index=True)
+                st.write("Keputusan per paragraf dan aturan (None berarti belum diketahui):")
+                st.dataframe([{"lokasi": row["lokasi"], "jenis": row["jenis"], **{key: value for key, value in check.items() if key != 'reason_codes'}} for row in scope for check in row["rule_decisions"]], hide_index=True)
             structure = document_structure(uploaded.getvalue())
             st.caption("Urutan berikut adalah inventaris kandidat, bukan validasi kepatuhan atau daftar bagian wajib. Identitas dan urutan perlu review; bagian tanpa kandidat belum tentu tidak ada.")
             if structure["bagian"]:
@@ -234,3 +251,53 @@ if snapshot and valid_upload and uploaded is not None and 'rules' in locals():
             writer.writeheader()
             writer.writerows(output["report"])
             st.download_button("Unduh laporan perubahan CSV", report_file.getvalue(), file_name=Path(uploaded.name).stem + "_perubahan.csv", mime="text/csv")
+
+# This opt-in panel only reads the fixed private local sample and never feeds the formatter.
+if os.environ.get("PPKI_LOCAL_REVIEW") == "1" and 'rules' in locals():
+    if st.get_option("server.address") not in {"localhost", "127.0.0.1", "::1"}:
+        st.warning("Review privat hanya tersedia jika Streamlit diikat ke localhost.")
+    else:
+        with st.expander("Review privat sampel operator"):
+            st.caption("Hanya lokal. Teks dokumen ditampilkan di layar dan tidak disimpan dalam CSV label. Hasil review tidak mengaktifkan formatter.")
+            if st.checkbox("Buka 40 sampel privat", key="open_private_review"):
+                try:
+                    review_data = operator_review.load_review(rules, operator_review.PRIVATE_DIR, max_upload_mb * 1024 * 1024)
+                    location = st.selectbox("Lokasi sampel", review_data["locations"], key="private_sample_location_" + review_data["digest"])
+                    context = operator_review.paragraph_context(review_data["data"], location)
+                    predicted = review_data["recognized"].get(location, {"jenis": "kosong", "alasan": "Paragraf kosong."})
+                    scope_row = review_data["scope"][location]
+                    st.write(f"Lokasi: {location} | Prediksi: {predicted['jenis']} | Cakupan: {scope_row['keputusan']}")
+                    st.write("Alasan classifier:", predicted["alasan"], scope_row["alasan"])
+                    st.write("Konteks sebelum (maksimum 200 karakter):")
+                    st.text(context["sebelum"][-200:])
+                    st.write("Paragraf terpilih:")
+                    st.text(context["teks"])
+                    st.write("Konteks sesudah (maksimum 200 karakter):")
+                    st.text(context["sesudah"][:200])
+                    st.dataframe([{"rule_code": c["rule_code"], "ketentuan": next((r["official_requirement"] for r in rules if r["rule_code"] == c["rule_code"]), "Tidak tersedia"), "status": c["status"], "alasan": c["alasan"]} for c in scope_row["rule_decisions"]], hide_index=True)
+                    label = review_data["labels"].get(location, {})
+                    role_names = {"": "Belum diisi (PENDING)", "teks_isi": "Teks isi biasa", "bab": "Heading BAB", "subbab": "Subbab", "caption": "Caption", "bagian_khusus": "Bagian khusus", "daftar_pustaka": "Daftar pustaka", "lainnya": "Lainnya", "belum_yakin": "Belum yakin"}
+                    safety_names = {"": "Belum diisi (PENDING)", "aman": "Aman diperbaiki", "tidak_aman": "Tidak aman diperbaiki", "belum_yakin": "Belum yakin"}
+                    widget_key = review_data["digest"] + "_" + location
+                    with st.form("private_review_" + widget_key):
+                        role_values = ("", *operator_review.ROLES)
+                        role = st.selectbox("Jenis menurut operator", role_values, index=role_values.index(label.get("operator_role", "")), format_func=lambda value: role_names[value], key="private_role_" + widget_key)
+                        safety_values = ("", *operator_review.SAFETY)
+                        answers = {}
+                        for code in operator_review.RULE_CODES:
+                            answers[code] = st.selectbox(code, safety_values, index=safety_values.index(label.get(code, "")), format_func=lambda value: safety_names[value], key="private_" + code + "_" + widget_key)
+                        saved = st.form_submit_button("Simpan label lokal")
+                    if saved:
+                        operator_review.save_label(operator_review.PRIVATE_DIR, review_data["digest"], set(review_data["locations"]), location, role, answers)
+                        review_data["labels"] = operator_review.load_labels(operator_review.PRIVATE_DIR, review_data["digest"], set(review_data["locations"]))
+                        st.success("Label disimpan di CSV privat. Label ini tidak mengubah rencana perbaikan.")
+                    evaluation = operator_review.evaluate_review(review_data["locations"], review_data["recognized"], review_data["scope"], review_data["labels"])
+                    st.write(f"Jenis PENDING/belum yakin: {evaluation['jenis_pending']} | Penilaian aturan PENDING/belum yakin: {evaluation['aturan_pending']}")
+                    st.caption("Hanya label eksplisit dibandingkan. Prediksi ambigu dihitung dalam FN dan juga ditampilkan terpisah. Precision/recall ditampilkan setelah setidaknya lima label positif per kategori; hasil hanya berlaku untuk sampel yang dilabeli.")
+                    st.dataframe(evaluation["klasifikasi"], hide_index=True)
+                    st.dataframe(evaluation["keamanan"], hide_index=True)
+                except ValueError as exc:
+                    st.error(str(exc))
+                except Exception:
+                    logging.error("Review privat gagal; periksa file lokal dan konfigurasi.")
+                    st.error("Review privat tidak dapat dibuka atau disimpan. Periksa file lokal.")
