@@ -235,6 +235,46 @@ def heading_candidates(data):
     return [(index, paragraph.text) for index, paragraph in enumerate(document.paragraphs, 1) if is_chapter_candidate(paragraph)]
 
 
+def document_structure(data: bytes) -> dict:
+    """Inventaris heading body, bukan validator urutan atau keberadaan bagian."""
+    try:
+        document = Document(BytesIO(data))
+    except (PackageNotFoundError, BadZipFile, KeyError, ValueError, OSError) as exc:
+        raise ValueError("Struktur dokumen DOCX tidak dapat dibaca.") from exc
+    labels = {
+        "PERNYATAAN": "Pernyataan", "PERNYATAAN KEASLIAN": "Pernyataan",
+        "ABSTRAK": "Abstrak", "ABSTRACT": "Abstract", "RINGKASAN": "Ringkasan",
+        "SUMMARY": "Summary", "DAFTAR ISI": "Daftar isi", "DAFTAR TABEL": "Daftar tabel",
+        "DAFTAR GAMBAR": "Daftar gambar", "DAFTAR LAMPIRAN": "Daftar lampiran",
+        "DAFTAR PUSTAKA": "Daftar pustaka", "PRAKATA": "Prakata",
+        "PENGESAHAN": "Pengesahan", "HAK CIPTA": "Hak cipta", "LAMPIRAN": "Lampiran",
+    }
+    rows = []
+    for index, paragraph in enumerate(document.paragraphs, 1):
+        text = " ".join(paragraph.text.split())
+        if not text:
+            continue
+        style = paragraph.style.style_id
+        if style == "Title":
+            kind = "Kandidat halaman judul"
+        elif style == "Heading1":
+            if is_chapter_candidate(paragraph):
+                kind = "BAB"
+            elif re.match(r"^PERNYATAAN(?:\s|$)", text, re.IGNORECASE):
+                kind = "Pernyataan"
+            elif re.match(r"^LAMPIRAN\s+[A-Z0-9]+(?:\s|$|[.:—–-])", text, re.IGNORECASE):
+                kind = "Lampiran"
+            else:
+                kind = labels.get(text.upper(), "Heading 1 lain / belum dikenali")
+        else:
+            continue
+        rows.append({"urutan": len(rows) + 1, "lokasi": f"paragraf:{index}", "style": style, "bagian_kandidat": kind, "teks": text, "status": "needs_review", "keterangan": "Identitas, cakupan dan urutan perlu dikonfirmasi; belum ada validator struktur."})
+    observed = {row["bagian_kandidat"] for row in rows}
+    parts = ("Kandidat halaman judul", "Pernyataan", "Abstrak", "Abstract", "Ringkasan", "Summary", "Daftar isi", "Daftar tabel", "Daftar gambar", "BAB", "Daftar pustaka", "Lampiran")
+    missing = [part for part in parts if part not in observed]
+    return {"bagian": rows, "tanpa_kandidat": missing}
+
+
 def illustration_structure(data: bytes) -> dict:
     """Describe body objects and caption candidates without judging PPKI rules."""
     try:

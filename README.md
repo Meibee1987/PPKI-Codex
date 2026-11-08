@@ -63,6 +63,10 @@ bukan bukti kepatuhan; periksa kasus ambigu dan referensi yang belum ditemukan
 secara manual. Aturan manual tetap belum memiliki validator kepatuhan. Rincian
 dan hasil Dummy Master tersedia di [laporan T10A](docs/T10A_REPORT.md).
 
+T11 menampilkan urutan kandidat bagian dari style Title dan Heading 1 secara
+read-only. Identitas, bagian yang belum ditemukan dan urutan tetap perlu review;
+inventaris ini bukan validasi kepatuhan. Lihat [laporan T11](docs/T11_REPORT.md).
+
 Hasil pengujian tiga dokumen representatif dan keterbatasan review visual tersedia
 di [laporan T5](docs/T5_REPORT.md). Pemilik menerima tiga fixture untuk cakupan
 MVP; hasil pemeriksaan manual dan validasi batas ukuran file masih diperlukan.

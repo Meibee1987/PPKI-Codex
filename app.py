@@ -7,7 +7,7 @@ import csv
 from io import StringIO
 
 from core.rules import filter_rules, load_rules
-from core.audit import audit_docx, summarize, font_candidates, heading_candidates, page_number_structure, illustration_structure, citation_diagnostics
+from core.audit import audit_docx, summarize, font_candidates, heading_candidates, page_number_structure, illustration_structure, citation_diagnostics, document_structure
 from core.formatter import format_docx, plan_changes, skipped_changes
 
 
@@ -130,6 +130,16 @@ if submitted:
                 st.warning(note)
             if rows:
                 st.dataframe(rows, hide_index=True)
+            st.subheader("Audit Struktur Dokumen")
+            structure = document_structure(uploaded.getvalue())
+            st.caption("Urutan berikut adalah inventaris kandidat, bukan validasi kepatuhan atau daftar bagian wajib. Identitas dan urutan perlu review; bagian tanpa kandidat belum tentu tidak ada.")
+            if structure["bagian"]:
+                st.dataframe(structure["bagian"], hide_index=True)
+            st.write("Belum ditemukan kandidat untuk: " + (", ".join(structure["tanpa_kandidat"]) or "Tidak ada"))
+            structure_rules = [r for r in applicable + review if r["domain"] in {"STR", "CVR", "ABS"} or r["domain"] == "CNT" and any(term in (r["element"] + " " + r["official_requirement"]).casefold() for term in ("struktur", "bagian awal", "bagian inti", "bagian akhir", "urutan", "susunan bab"))]
+            st.write(f"Aturan terkait untuk {degree} dan konteks yang belum dipetakan: {len(structure_rules)}. Validator struktur T11 belum tersedia.")
+            with st.expander("Inventaris aturan struktur terkait"):
+                st.dataframe([{**{key: r[key] for key in ("rule_code", "domain", "element", "official_requirement", "expected_value_pattern", "validation_key", "applies_to", "fix_mode", "severity", "source_section", "pdf_page", "printed_page")}, "status_validator": "not_supported"} for r in structure_rules], hide_index=True)
             body_confirmed = bool(confirmed and style_id)
             plan = plan_changes(uploaded.getvalue(), rules, degree, style_id, body_confirmed, heading_confirmed, heading_only)
             signature = sha256(uploaded.getvalue() + json.dumps(rules, sort_keys=True).encode()).hexdigest()

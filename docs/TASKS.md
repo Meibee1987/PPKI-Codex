@@ -104,6 +104,12 @@ terkait yang ditemukan masih menggunakan `manual.not-implemented`, sehingga
 tidak ada validator aturan sitasi yang didukung. Hasil ambigu dan konteks
 aplikabilitas tetap memerlukan review. Rincian: [laporan T10A](T10A_REPORT.md).
 
+## T11 — Audit struktur dokumen read-only [selesai untuk cakupan diagnostik]
+
+Inventaris kandidat Title dan Heading 1 menampilkan urutan aktual dan lokasi;
+identitas, urutan dan bagian tanpa kandidat tetap perlu review. Aturan struktur
+belum memiliki validator kepatuhan baru. Rincian ada di [laporan T11](T11_REPORT.md).
+
 ## Definisi Done setiap task
 - [ ] Perubahan kode sesuai lingkup task dan tidak mengubah aturan sumber.
 - [ ] Tes yang relevan ada dan dijalankan; hasil dilaporkan.
