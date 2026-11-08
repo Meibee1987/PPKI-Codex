@@ -185,7 +185,7 @@ def test_s1_streamlit_page_audit_without_style_confirmation():
         app.button[0].click().run()
         assert not app.exception
         assert len(app.session_state["audit_t4a"]["plan"]) == 5
-        next(button for button in app.button if button.label == "Terapkan Perbaikan").click().run()
+        next(button for button in app.button if button.label == "Terapkan Perbaikan Otomatis").click().run()
         assert not app.exception
         assert len(app.session_state["output_t4a"]["changes"]) == 5
         assert len(app.get("download_button")) == 2
@@ -306,7 +306,7 @@ def test_font_formatter_streamlit_plan_and_report():
         app.selectbox[1].select("BodyText").run()
         app.checkbox[0].check(); app.button[0].click().run()
         assert any(i["rule_code"] == "PPKI-LAY-005" for i in app.session_state["audit_t4a"]["plan"])
-        next(button for button in app.button if button.label == "Terapkan Perbaikan").click().run()
+        next(button for button in app.button if button.label == "Terapkan Perbaikan Otomatis").click().run()
         assert not app.exception
         report = next(i for i in app.session_state["output_t4a"]["report"] if i["rule_code"] == "PPKI-LAY-005")
         assert "Arial / 11 pt" in report["sebelum"] and "Times New Roman / 12 pt" in report["sesudah"] and report["status"] == "pass"

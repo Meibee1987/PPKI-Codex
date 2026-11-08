@@ -13,7 +13,7 @@ from core.formatter import format_docx, plan_changes, skipped_changes
 
 st.set_page_config(page_title="PPKI Academic Formatter")
 st.title("PPKI Academic Formatter")
-st.write("Unggah dokumen dan pilih jenjang karya ilmiah.")
+st.header("1. Upload dokumen dan pilih jenjang")
 
 uploaded = st.file_uploader("Dokumen DOCX", type=["docx"])
 degree = st.selectbox("Jenjang", ["S1", "S2", "S3"])
@@ -30,8 +30,8 @@ else:
     st.caption("Metadata tersebut bukan bukti handler tersedia.")
     st.write(f"Berlaku untuk {degree}: {len(applicable)}")
     st.write(f"Konteks penerapan perlu review: {len(review)}")
-    st.write("Jumlah aturan berdasarkan domain:")
-    st.dataframe([{"Domain": domain, "Jumlah": count} for domain, count in sorted(Counter(rule["domain"] for rule in rules).items())], hide_index=True)
+    with st.expander("Jumlah aturan berdasarkan domain"):
+        st.dataframe([{"Domain": domain, "Jumlah": count} for domain, count in sorted(Counter(rule["domain"] for rule in rules).items())], hide_index=True)
 
 styles = {}
 illustrations = None
@@ -42,6 +42,7 @@ if uploaded is not None:
     except ValueError as exc:
         st.error(str(exc))
 
+st.header("2. Audit dan ringkasan")
 st.subheader("Audit teks isi")
 st.caption("Pilihan ini opsional untuk audit halaman dan BAB. Untuk dokumen dummy T4A, pilih Body Text (BodyText).")
 style_order = sorted(styles, key=lambda key: (0 if key == "BodyText" else 1 if key == "Normal" else 2, styles[key]["name"].casefold()))
@@ -81,6 +82,16 @@ with st.form("audit_form", clear_on_submit=True):
                     caption_confirmed.add(caption["lokasi"])
     submitted = st.form_submit_button("Audit")
 
+summary_area = st.container()
+
+
+def show_summary(counts):
+    st.write("Ringkasan per aturan (termasuk konteks yang perlu review):")
+    st.write(f"Diperiksa: {counts['diperiksa']} | pass: {counts['sesuai']} | fail: {counts['tidak_sesuai']} | needs_review: {counts['perlu_review']} | not_supported: {counts['tidak_didukung']}")
+    st.caption("pass: sesuai pada cakupan yang diperiksa. fail: ketidaksesuaian terdeteksi validator yang didukung. needs_review: perlu pemeriksaan operator. not_supported: validator belum tersedia.")
+    st.caption("Hasil paragraf hanya mencakup style yang dipilih dan dikonfirmasi; paragraf lain memerlukan pemeriksaan manual. Diagnostik kandidat tidak membuktikan kepatuhan PPKI.")
+
+
 if submitted:
     st.session_state.pop("audit_t4a", None)
     st.session_state.pop("output_t4a", None)
@@ -95,9 +106,9 @@ if submitted:
             st.error(str(exc))
         else:
             counts = summarize(findings)
-            st.write("Ringkasan per aturan (termasuk konteks yang perlu review):")
-            st.caption("Hasil paragraf hanya mencakup style yang dipilih dan dikonfirmasi; paragraf lain memerlukan pemeriksaan manual. Usulan perubahan hanya dry-run.")
-            st.write(f"Diperiksa: {counts['diperiksa']} | Sesuai: {counts['sesuai']} | Tidak sesuai: {counts['tidak_sesuai']} | Tidak didukung: {counts['tidak_didukung']} | Perlu review: {counts['perlu_review']}")
+            with summary_area:
+                show_summary(counts)
+            st.header("3. Detail temuan dan diagnostik")
             st.dataframe(findings, hide_index=True)
             st.subheader("Struktur penomoran halaman")
             st.caption("Diagnostik read-only, bukan bukti kepatuhan. LAY-023 dan LAY-024 tetap belum didukung; penomoran aktual perlu review di Word.")
@@ -150,10 +161,14 @@ snapshot = st.session_state.get("audit_t4a")
 if snapshot and uploaded is not None and 'rules' in locals():
     signature = sha256(uploaded.getvalue() + json.dumps(rules, sort_keys=True).encode()).hexdigest()
     if (snapshot["signature"], snapshot["degree"], snapshot["style"]) == (signature, degree, style_id):
+        if not submitted:
+            with summary_area:
+                show_summary(snapshot["before"])
+        st.header("4. Rencana perbaikan dan download")
         st.write("Rencana perbaikan (hanya aturan Auto):")
         if snapshot["plan"]:
             st.dataframe(snapshot["plan"], hide_index=True)
-            if st.button("Terapkan Perbaikan"):
+            if st.button("Terapkan Perbaikan Otomatis"):
                 st.session_state.pop("output_t4a", None)
                 try:
                     output, after, changes = format_docx(uploaded.getvalue(), rules, degree, style_id, snapshot["confirmed"], snapshot["heading_confirmed"], snapshot["heading_only"])
@@ -168,8 +183,8 @@ if snapshot and uploaded is not None and 'rules' in locals():
         else:
             st.info("Tidak ada perubahan Auto yang dapat diterapkan. Temuan lain memerlukan review.")
         if snapshot["skipped"]:
-            st.write("Dilewati beserta alasan:")
-            st.dataframe(snapshot["skipped"], hide_index=True)
+            with st.expander(f"Dilewati beserta alasan ({len(snapshot['skipped'])})"):
+                st.dataframe(snapshot["skipped"], hide_index=True)
         output = st.session_state.get("output_t4a")
         if output and output["signature"] == signature:
             st.success(f"{len(output['changes'])} perubahan lolos validasi dan audit ulang.")

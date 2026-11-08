@@ -110,6 +110,13 @@ Inventaris kandidat Title dan Heading 1 menampilkan urutan aktual dan lokasi;
 identitas, urutan dan bagian tanpa kandidat tetap perlu review. Aturan struktur
 belum memiliki validator kepatuhan baru. Rincian ada di [laporan T11](T11_REPORT.md).
 
+## T12 — Penyempurnaan UI dan laporan audit [selesai]
+
+Alur dibagi menjadi empat bagian, status dijelaskan, dan alasan perubahan yang
+dilewati tersedia melalui expander. Ringkasan tetap dihitung per aturan dengan
+fungsi sebelumnya; rencana Auto dan unduhan tetap terpisah dari diagnostik.
+Rincian pengujian: [laporan T12](T12_REPORT.md).
+
 ## Definisi Done setiap task
 - [ ] Perubahan kode sesuai lingkup task dan tidak mengubah aturan sumber.
 - [ ] Tes yang relevan ada dan dijalankan; hasil dilaporkan.

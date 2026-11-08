@@ -93,7 +93,7 @@ def test_heading_confirmation_persists_for_formatter_reaudit():
         app.checkbox[1].check(); app.button[0].click().run()
         assert app.session_state["audit_t4a"]["heading_confirmed"]
         before = app.session_state["audit_t4a"]["before"]
-        next(button for button in app.button if button.label == "Terapkan Perbaikan").click().run()
+        next(button for button in app.button if button.label == "Terapkan Perbaikan Otomatis").click().run()
         assert not app.exception
         after = app.session_state["output_t4a"]["after"]
         assert after["sesuai"] > before["sesuai"]

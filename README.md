@@ -67,6 +67,10 @@ T11 menampilkan urutan kandidat bagian dari style Title dan Heading 1 secara
 read-only. Identitas, bagian yang belum ditemukan dan urutan tetap perlu review;
 inventaris ini bukan validasi kepatuhan. Lihat [laporan T11](docs/T11_REPORT.md).
 
+Tampilan T12 memisahkan upload, audit dan ringkasan, detail diagnostik, serta
+rencana perbaikan dan unduhan. Alasan perubahan yang dilewati tersedia dalam
+expander. Lihat [laporan T12](docs/T12_REPORT.md).
+
 Hasil pengujian tiga dokumen representatif dan keterbatasan review visual tersedia
 di [laporan T5](docs/T5_REPORT.md). Pemilik menerima tiga fixture untuk cakupan
 MVP; hasil pemeriksaan manual dan validasi batas ukuran file masih diperlukan.

@@ -110,7 +110,7 @@ def test_streamlit_heading_plan_reaudit_and_downloads():
         app.button[0].click().run()
         assert not app.exception
         assert len(app.session_state["audit_t4a"]["plan"]) == 3
-        next(button for button in app.button if button.label == "Terapkan Perbaikan").click().run()
+        next(button for button in app.button if button.label == "Terapkan Perbaikan Otomatis").click().run()
         assert not app.exception
         output = app.session_state["output_t4a"]
         assert len(output["report"]) == 3 and all(i["status"] == "pass" for i in output["report"])
