@@ -75,6 +75,11 @@ Hasil acceptance teknis empat fixture tersedia di [laporan T13](docs/T13_REPORT.
 Pemeriksaan Word dan dokumen nyata masih menunggu operator; gunakan
 [checklist T13](docs/T13_WORD_CHECKLIST.md).
 
+Upload DOCX dibatasi 20 MiB secara default. Untuk mengubah batas input,
+tetapkan variabel lingkungan `PPKI_MAX_UPLOAD_MB` sebagai bilangan bulat
+positif sebelum menjalankan aplikasi; batas jumlah dan dekompresi ZIP tetap
+berlaku. Rincian dan keterbatasan ada di [laporan T14](docs/T14_REPORT.md).
+
 Hasil pengujian tiga dokumen representatif dan keterbatasan review visual tersedia
 di [laporan T5](docs/T5_REPORT.md). Pemilik menerima tiga fixture untuk cakupan
 MVP; hasil pemeriksaan manual dan validasi batas ukuran file masih diperlukan.

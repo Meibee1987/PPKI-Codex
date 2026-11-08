@@ -124,6 +124,13 @@ Microsoft Word dan pengujian dokumen nyata anonim masih PENDING, sehingga T13
 belum ditutup. Lihat [laporan T13](T13_REPORT.md) dan
 [checklist Word](T13_WORD_CHECKLIST.md).
 
+## T14 — Stabilitas, keamanan file, dan error [selesai untuk cakupan diuji]
+
+Upload diperiksa sebelum pemrosesan, batas ukuran dapat dikonfigurasi, dan
+state audit/unduhan dibatalkan saat konteks input berubah. Pengujian negatif,
+state dan regresi dicatat di [laporan T14](T14_REPORT.md). T13 tetap menunggu
+pemeriksaan visual Word dan dokumen nyata.
+
 ## Definisi Done setiap task
 - [ ] Perubahan kode sesuai lingkup task dan tidak mengubah aturan sumber.
 - [ ] Tes yang relevan ada dan dijalankan; hasil dilaporkan.

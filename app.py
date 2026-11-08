@@ -4,10 +4,12 @@ from hashlib import sha256
 import json
 from pathlib import Path
 import csv
+import logging
+import os
 from io import StringIO
 
 from core.rules import filter_rules, load_rules
-from core.audit import audit_docx, summarize, font_candidates, heading_candidates, page_number_structure, illustration_structure, citation_diagnostics, document_structure
+from core.audit import audit_docx, summarize, font_candidates, heading_candidates, page_number_structure, illustration_structure, citation_diagnostics, document_structure, validate_docx_input
 from core.formatter import format_docx, plan_changes, skipped_changes
 
 
@@ -17,6 +19,20 @@ st.header("1. Upload dokumen dan pilih jenjang")
 
 uploaded = st.file_uploader("Dokumen DOCX", type=["docx"])
 degree = st.selectbox("Jenjang", ["S1", "S2", "S3"])
+try:
+    max_upload_mb = int(os.environ.get("PPKI_MAX_UPLOAD_MB", "20"))
+    if max_upload_mb < 1:
+        raise ValueError
+except ValueError:
+    logging.warning("PPKI_MAX_UPLOAD_MB tidak valid; menggunakan 20 MB.")
+    max_upload_mb = 20
+
+document_key = sha256(uploaded.getvalue()).hexdigest() if uploaded is not None else "none"
+input_key = (document_key, degree)
+if st.session_state.get("input_key") != input_key:
+    st.session_state.pop("audit_t4a", None)
+    st.session_state.pop("output_t4a", None)
+    st.session_state["input_key"] = input_key
 
 try:
     rules = load_rules()
@@ -35,12 +51,18 @@ else:
 
 styles = {}
 illustrations = None
+valid_upload = False
 if uploaded is not None:
     try:
+        validate_docx_input(uploaded.getvalue(), uploaded.name, max_upload_mb * 1024 * 1024)
         styles = font_candidates(uploaded.getvalue())
         illustrations = illustration_structure(uploaded.getvalue())
+        valid_upload = True
     except ValueError as exc:
         st.error(str(exc))
+    except Exception:
+        logging.exception("Gagal membuka struktur DOCX upload")
+        st.error("DOCX tidak dapat diproses. Periksa apakah file valid dan tidak rusak.")
 
 st.header("2. Audit dan ringkasan")
 st.subheader("Audit teks isi")
@@ -48,8 +70,14 @@ st.caption("Pilihan ini opsional untuk audit halaman dan BAB. Untuk dokumen dumm
 style_order = sorted(styles, key=lambda key: (0 if key == "BodyText" else 1 if key == "Normal" else 2, styles[key]["name"].casefold()))
 style_id = st.selectbox(
     "Style kandidat teks isi", [None, *style_order],
+    key=f"body_style_{document_key}_{degree}",
     format_func=lambda key: "Pilih style" if key is None else f"{styles[key]['name']} ({key}) — {len(styles[key]['paragraphs'])} paragraf",
 )
+scope_key = (document_key, degree, style_id)
+if st.session_state.get("scope_key") != scope_key:
+    st.session_state.pop("audit_t4a", None)
+    st.session_state.pop("output_t4a", None)
+    st.session_state["scope_key"] = scope_key
 if style_id:
     paragraphs = styles[style_id]["paragraphs"]
     if any(term in (style_id + " " + styles[style_id]["name"]).casefold() for term in ("title", "subtitle", "heading", "caption", "judul", "keterangan")):
@@ -59,26 +87,25 @@ if style_id:
         st.text(f"Paragraf {index}: {text[:200]}")
 
 st.subheader("Audit Heading BAB")
-candidates = heading_candidates(uploaded.getvalue()) if uploaded is not None and styles else []
+candidates = heading_candidates(uploaded.getvalue()) if valid_upload and styles else []
 st.write(f"Kandidat judul BAB (Heading 1): {len(candidates)}")
 st.caption("Konfirmasi setiap kandidat secara terpisah. Heading lain tidak otomatis dianggap BAB.")
 
 with st.form("audit_form", clear_on_submit=True):
     st.write("Konfirmasi teks isi (opsional untuk audit BAB):")
-    confirmed = st.checkbox("Saya telah memeriksa dan memastikan semua paragraf kandidat style ini adalah teks isi utama untuk audit ini.")
+    confirmed = st.checkbox("Saya telah memeriksa dan memastikan semua paragraf kandidat style ini adalah teks isi utama untuk audit ini.", key=f"body_confirm_{document_key}_{degree}_{style_id}")
     st.write("Konfirmasi kandidat BAB:")
     heading_confirmed = set()
-    document_key = sha256(uploaded.getvalue()).hexdigest() if uploaded is not None else "none"
     for index, text in candidates:
-        if st.checkbox(f"Paragraf {index}: {text}", key=f"chapter_{document_key}_{index}"):
+        if st.checkbox(f"Paragraf {index}: {text}", key=f"chapter_{document_key}_{degree}_{index}"):
             heading_confirmed.add(index)
-    heading_only = st.checkbox("Batasi rencana perbaikan pada heading BAB yang dikonfirmasi.")
+    heading_only = st.checkbox("Batasi rencana perbaikan pada heading BAB yang dikonfirmasi.", key=f"heading_only_{document_key}_{degree}")
     caption_confirmed = set()
     if illustrations and illustrations["caption"]:
         st.write("Konfirmasi dugaan hubungan caption dan objek (opsional):")
         for caption in illustrations["caption"]:
             if caption["dugaan_objek"] != "Tidak diketahui":
-                if st.checkbox(f"{caption['lokasi']}: {caption['teks']} → {caption['dugaan_objek']}", key=f"caption_{document_key}_{caption['lokasi']}"):
+                if st.checkbox(f"{caption['lokasi']}: {caption['teks']} → {caption['dugaan_objek']}", key=f"caption_{document_key}_{degree}_{caption['lokasi']}"):
                     caption_confirmed.add(caption["lokasi"])
     submitted = st.form_submit_button("Audit")
 
@@ -97,6 +124,8 @@ if submitted:
     st.session_state.pop("output_t4a", None)
     if uploaded is None:
         st.warning("Pilih dokumen DOCX terlebih dahulu.")
+    elif not valid_upload:
+        st.error("Audit dibatalkan karena file DOCX tidak valid atau tidak dapat diproses.")
     elif 'rules' not in locals():
         st.error("Audit tidak dapat dilakukan karena aturan gagal dimuat.")
     else:
@@ -104,6 +133,9 @@ if submitted:
             findings = audit_docx(uploaded.getvalue(), rules, degree, style_id, confirmed and style_id is not None, heading_confirmed)
         except ValueError as exc:
             st.error(str(exc))
+        except Exception:
+            logging.exception("Audit DOCX gagal")
+            st.error("Audit gagal memproses DOCX. Periksa struktur file dan coba kembali.")
         else:
             counts = summarize(findings)
             with summary_area:
@@ -158,7 +190,7 @@ if submitted:
             st.session_state.audit_t4a = {"signature": signature, "degree": degree, "style": style_id, "confirmed": body_confirmed, "heading_confirmed": heading_confirmed, "heading_only": heading_only, "plan": plan, "before": counts, "skipped": skipped}
 
 snapshot = st.session_state.get("audit_t4a")
-if snapshot and uploaded is not None and 'rules' in locals():
+if snapshot and valid_upload and uploaded is not None and 'rules' in locals():
     signature = sha256(uploaded.getvalue() + json.dumps(rules, sort_keys=True).encode()).hexdigest()
     if (snapshot["signature"], snapshot["degree"], snapshot["style"]) == (signature, degree, style_id):
         if not submitted:
@@ -176,6 +208,9 @@ if snapshot and uploaded is not None and 'rules' in locals():
                         raise ValueError("Rencana berubah; lakukan audit kembali.")
                 except (ValueError, OSError) as exc:
                     st.error(f"Perbaikan gagal divalidasi: {exc}")
+                except Exception:
+                    logging.exception("Perbaikan DOCX gagal")
+                    st.error("Perbaikan gagal diproses atau divalidasi; file hasil tidak tersedia.")
                 else:
                     after_map = {(item["rule_code"], item["location"]): item for item in after}
                     report = [{"rule_code": item["rule_code"], "lokasi": item["location"], "sebelum": item["actual"], "sesudah": after_map[(item["rule_code"], item["location"])]["actual"], "target": item["expected"], "status": after_map[(item["rule_code"], item["location"])]["status"]} for item in changes]

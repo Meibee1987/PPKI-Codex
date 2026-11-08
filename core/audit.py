@@ -2,6 +2,8 @@ from collections import Counter
 from io import BytesIO
 import re
 import posixpath
+import stat
+import zlib
 from xml.etree import ElementTree as ET
 from zipfile import BadZipFile, ZipFile
 
@@ -13,6 +15,53 @@ from docx.table import Table
 from docx.text.paragraph import Paragraph
 
 from core.rules import filter_rules
+
+
+def validate_docx_input(data: bytes, filename: str, max_bytes: int = 20 * 1024 * 1024) -> None:
+    """Check upload bounds and DOCX package before any parser reads it."""
+    if not filename.lower().endswith(".docx"):
+        raise ValueError("Pilih file dengan ekstensi .docx.")
+    if not data:
+        raise ValueError("File DOCX kosong.")
+    if len(data) > max_bytes:
+        raise ValueError(f"Ukuran file melebihi batas {max_bytes / 1024 / 1024:g} MB.")
+    try:
+        with ZipFile(BytesIO(data)) as archive:
+            entries = archive.infolist()
+            if len(entries) > 2000:
+                raise ValueError("DOCX memiliki terlalu banyak entri ZIP.")
+            names = [entry.filename for entry in entries]
+            if len(names) != len(set(names)) or len(names) != len({n.casefold() for n in names}):
+                raise ValueError("DOCX memiliki nama entri ZIP duplikat atau ambigu.")
+            if sum(entry.file_size for entry in entries) > 200 * 1024 * 1024:
+                raise ValueError("Ukuran DOCX setelah dekompresi terlalu besar.")
+            for entry in entries:
+                name = entry.filename
+                parts = name.split("/")
+                if name.startswith(('/', '\\')) or '\\' in name or ':' in name or any(part in ('.', '..') for part in parts) or '\x00' in name:
+                    raise ValueError("DOCX memiliki nama entri ZIP yang tidak aman.")
+                if entry.flag_bits & 1:
+                    raise ValueError("DOCX terenkripsi tidak didukung.")
+                if stat.S_ISLNK(entry.external_attr >> 16):
+                    raise ValueError("DOCX memiliki entri ZIP berupa symbolic link yang tidak aman.")
+                if entry.file_size and (entry.compress_size == 0 or entry.file_size / entry.compress_size > 1000):
+                    raise ValueError("Rasio kompresi entri DOCX tidak wajar.")
+                if 'vbaproject' in name.casefold() or name.casefold().startswith('word/activex/'):
+                    raise ValueError("DOCX dengan macro atau ActiveX tidak didukung.")
+            required = {"[Content_Types].xml", "_rels/.rels", "word/document.xml"}
+            if not required.issubset(names):
+                raise ValueError("Komponen DOCX wajib tidak lengkap.")
+            roots = {"[Content_Types].xml": "{http://schemas.openxmlformats.org/package/2006/content-types}Types", "_rels/.rels": "{http://schemas.openxmlformats.org/package/2006/relationships}Relationships", "word/document.xml": "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}document"}
+            for name in required:
+                contents = archive.read(name)
+                if name == "[Content_Types].xml" and b"macroenabled" in contents.lower():
+                    raise ValueError("DOCX dengan macro tidak didukung.")
+                if ET.fromstring(contents).tag != roots[name]:
+                    raise ValueError("Komponen utama DOCX tidak valid.")
+            if archive.testzip() is not None:
+                raise ValueError("Isi paket DOCX rusak.")
+    except (BadZipFile, ET.ParseError, KeyError, OSError, RuntimeError, NotImplementedError, EOFError, zlib.error) as exc:
+        raise ValueError("Paket DOCX tidak valid, rusak, atau tidak didukung.") from exc
 
 
 # Nilai ini adalah mapping eksplisit dari snapshot PPKI, bukan parser bebas teks pedoman.
