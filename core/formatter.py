@@ -6,7 +6,7 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm, Pt
 
-from core.audit import audit_docx, PAGE_RULES, certain_font
+from core.audit import audit_docx, PAGE_RULES, certain_font, is_chapter_candidate
 from core.rules import filter_rules
 
 
@@ -17,6 +17,32 @@ NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 PAGE_CODES = {spec[0]: (spec[2], spec[3]) for spec in PAGE_RULES.values()}
 FONT_CODE = "PPKI-LAY-005"
 SYMBOL_FONTS = ("symbol", "wingdings", "webdings", "dingbats")
+HEADING_CODES = {"PPKI-HDG-003", "PPKI-HDG-004", "PPKI-HDG-006"}
+
+
+def heading_targets(paragraph):
+    """Return title offsets per plain text node; reject ambiguous or expanding case mappings."""
+    import re
+    from docx.oxml.ns import qn
+    if not is_chapter_candidate(paragraph):
+        return None
+    match = re.fullmatch(r"\s*BAB\s+[IVXLCDM]+\s+(.+?)\s*", paragraph.text, flags=re.IGNORECASE | re.DOTALL)
+    if not match or any(not c.isascii() for c in match.group(1)):
+        return None
+    if any(c.tag not in (qn("w:pPr"), qn("w:r"), qn("w:bookmarkStart"), qn("w:bookmarkEnd")) for c in paragraph._p):
+        return None
+    targets, offset = [], 0
+    for run_index, run in enumerate(paragraph.runs):
+        if any(c.tag not in (qn("w:rPr"), qn("w:t")) for c in run._r):
+            return None
+        nodes = run._r.findall(qn("w:t"))
+        for text_index, node in enumerate(nodes):
+            text = node.text or ""
+            start, end = max(0, match.start(1) - offset), min(len(text), match.end(1) - offset)
+            if start < end:
+                targets.append((run_index, text_index, start, end))
+            offset += len(text)
+    return targets if targets and offset == len(paragraph.text) else None
 
 
 def font_targets(paragraph, expected):
@@ -77,7 +103,7 @@ def section_is_safe(section):
     return section_skip_reason(section) is None
 
 
-def skipped_changes(data, rules, degree, findings, plan, style, confirmed):
+def skipped_changes(data, rules, degree, findings, plan, style, confirmed, heading_only=False):
     document = Document(BytesIO(data))
     applicable, _ = filter_rules(rules, degree)
     applicable_codes = {rule["rule_code"] for rule in applicable}
@@ -86,12 +112,14 @@ def skipped_changes(data, rules, degree, findings, plan, style, confirmed):
     skipped = []
     for item in findings:
         code, location, status = item["rule_code"], item["location"], item["status"]
-        if code not in PAGE_CODES and code not in VALUES and code != FONT_CODE:
+        if code not in PAGE_CODES and code not in VALUES and code != FONT_CODE and code not in HEADING_CODES:
             continue
         if status not in {"fail", "needs_review", "not_supported"} or (code, location) in planned:
             continue
         rule = rule_by_code[code]
-        if code not in applicable_codes:
+        if heading_only and code not in HEADING_CODES:
+            reason = "Di luar cakupan perbaikan heading yang dipilih."
+        elif code not in applicable_codes:
             reason = f"Konteks applies_to '{rule['applies_to']}' belum dipastikan untuk {degree}."
         elif status == "not_supported":
             reason = "Validator atau mapping aturan belum didukung."
@@ -101,6 +129,8 @@ def skipped_changes(data, rules, degree, findings, plan, style, confirmed):
             reason = f"fix_mode={rule['fix_mode']}; perbaikan Auto tidak diizinkan."
         elif code in PAGE_CODES and location.startswith("section:"):
             reason = section_skip_reason(document.sections[int(location.split(":")[1]) - 1]) or "Section memerlukan review."
+        elif code in HEADING_CODES:
+            reason = "Judul BAB mengandung karakter non-ASCII, struktur run kompleks, atau bold yang belum pasti; perlu review."
         elif not style or not confirmed:
             reason = "Style teks isi belum dipilih dan dikonfirmasi."
         elif code == FONT_CODE and location.startswith("paragraf:"):
@@ -111,8 +141,8 @@ def skipped_changes(data, rules, degree, findings, plan, style, confirmed):
     return skipped
 
 
-def plan_changes(data, rules, degree, style, confirmed):
-    findings = audit_docx(data, rules, degree, style, confirmed)
+def plan_changes(data, rules, degree, style, confirmed, heading_confirmed=None, heading_only=False):
+    findings = audit_docx(data, rules, degree, style, confirmed, heading_confirmed)
     applicable, _ = filter_rules(rules, degree)
     allowed = {rule["rule_code"] for rule in applicable if rule["fix_mode"] == "Auto"}
     document = Document(BytesIO(data))
@@ -120,6 +150,17 @@ def plan_changes(data, rules, degree, style, confirmed):
     for item in findings:
         code, location = item["rule_code"], item["location"]
         if code not in allowed or item["status"] != "fail":
+            continue
+        if code in HEADING_CODES and location.startswith("paragraf:") and int(location.split(":")[1]) in (heading_confirmed or set()):
+            paragraph = document.paragraphs[int(location.split(":")[1]) - 1]
+            targets = heading_targets(paragraph)
+            if not targets:
+                continue
+            if code == "PPKI-HDG-004" and any(paragraph.runs[r].bold is None for r, _, _, _ in targets):
+                continue
+            result.append(item)
+            continue
+        if heading_only:
             continue
         if code in VALUES and confirmed and style and location.startswith("paragraf:"):
             result.append(item)
@@ -148,6 +189,24 @@ def _document_structure(xml, changes):
         elif child.tag == NS + "sectPr":
             sections.append(child)
     for index, codes in changes.items():
+        if isinstance(index, tuple) and index[0] == "heading_text":
+            _, paragraph_index, run_index, text_index, start, end = index
+            run = paragraphs[paragraph_index - 1].findall(NS + "r")[run_index]
+            text = run.findall(NS + "t")[text_index]
+            value = text.text or ""
+            text.text = value[:start] + value[start:end].upper() + value[end:]
+            continue
+        if isinstance(index, tuple) and index[0] == "heading_bold":
+            _, paragraph_index, run_index = index
+            run = paragraphs[paragraph_index - 1].findall(NS + "r")[run_index]
+            rpr = run.find(NS + "rPr")
+            if rpr is not None:
+                bold = rpr.find(NS + "b")
+                if bold is not None:
+                    rpr.remove(bold)
+                if not rpr.attrib and not list(rpr):
+                    run.remove(rpr)
+            continue
         if isinstance(index, tuple):
             _, paragraph_index, run_index = index
             run = paragraphs[paragraph_index - 1].findall(NS + "r")[run_index]
@@ -197,7 +256,7 @@ def _document_structure(xml, changes):
                     indent.attrib.pop(NS + key, None)
                 if not indent.attrib and not list(indent):
                     ppr.remove(indent)
-        if "PPKI-LAY-019" in codes:
+        if "PPKI-LAY-019" in codes or "PPKI-HDG-006" in codes:
             alignment = ppr.find(NS + "jc")
             if alignment is not None:
                 ppr.remove(alignment)
@@ -208,11 +267,11 @@ def _document_structure(xml, changes):
     return canonical(root)
 
 
-def format_docx(data, rules, degree, style, confirmed):
+def format_docx(data, rules, degree, style, confirmed, heading_confirmed=None, heading_only=False):
     """Return validated copy, re-audit and applied changes; never write input."""
-    changes = plan_changes(data, rules, degree, style, confirmed)
+    changes = plan_changes(data, rules, degree, style, confirmed, heading_confirmed, heading_only)
     if not changes:
-        return data, audit_docx(data, rules, degree, style, confirmed), []
+        return data, audit_docx(data, rules, degree, style, confirmed, heading_confirmed), []
     document = Document(BytesIO(data))
     changed = {}
     for item in changes:
@@ -230,6 +289,27 @@ def format_docx(data, rules, degree, style, confirmed):
             continue
         index = int(item["location"].split(":", 1)[1])
         paragraph = document.paragraphs[index - 1]
+        if item["rule_code"] in HEADING_CODES:
+            targets = heading_targets(paragraph)
+            if index not in (heading_confirmed or set()) or not targets:
+                raise ValueError("Kandidat BAB tidak aman atau belum dikonfirmasi.")
+            if item["rule_code"] == "PPKI-HDG-003":
+                from docx.oxml.ns import qn
+                for run_index, text_index, start, end in targets:
+                    node = paragraph.runs[run_index]._r.findall(qn("w:t"))[text_index]
+                    text = node.text or ""
+                    node.text = text[:start] + text[start:end].upper() + text[end:]
+                    changed[("heading_text", index, run_index, text_index, start, end)] = {"uppercase"}
+            elif item["rule_code"] == "PPKI-HDG-004":
+                for run_index in {target[0] for target in targets}:
+                    run = paragraph.runs[run_index]
+                    if run.bold is False:
+                        run.bold = True
+                        changed[("heading_bold", index, run_index)] = {"bold"}
+            else:
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                changed.setdefault(index, set()).add("PPKI-HDG-006")
+            continue
         if paragraph.style.style_id != style:
             raise ValueError("Cakupan paragraf berubah; audit ulang diperlukan.")
         if item["rule_code"] == FONT_CODE:
@@ -252,6 +332,15 @@ def format_docx(data, rules, degree, style, confirmed):
     document.save(output)
     result = output.getvalue()
     try:
+        # Keep every original package part byte-for-byte; only the audited main XML changes.
+        if any(item["rule_code"] in HEADING_CODES for item in changes):
+            with ZipFile(BytesIO(data)) as original, ZipFile(BytesIO(result)) as generated:
+                replacement = generated.read("word/document.xml")
+                rebuilt = BytesIO()
+                with ZipFile(rebuilt, "w") as target:
+                    for info in original.infolist():
+                        target.writestr(info, replacement if info.filename == "word/document.xml" else original.read(info))
+                result = rebuilt.getvalue()
         with ZipFile(BytesIO(data)) as original, ZipFile(BytesIO(result)) as formatted:
             if len(original.namelist()) != len(set(original.namelist())) or set(original.namelist()) != set(formatted.namelist()):
                 raise ValueError("Struktur paket DOCX berubah.")
@@ -260,7 +349,7 @@ def format_docx(data, rules, degree, style, confirmed):
                     raise ValueError(f"Bagian DOCX berubah di luar cakupan: {name}")
             if _document_structure(original.read("word/document.xml"), changed) != _document_structure(formatted.read("word/document.xml"), changed):
                 raise ValueError("Isi atau struktur dokumen berubah di luar format yang dipilih.")
-        after = audit_docx(result, rules, degree, style, confirmed)
+        after = audit_docx(result, rules, degree, style, confirmed, heading_confirmed)
         statuses = {(item["rule_code"], item["location"]): item["status"] for item in after}
         if any(statuses.get((item["rule_code"], item["location"])) != "pass" for item in changes):
             raise ValueError("Audit ulang tidak membuktikan semua perubahan berhasil.")

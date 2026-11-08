@@ -258,7 +258,7 @@ def heading_findings(document, rule, confirmed):
         if rule["rule_code"] == "PPKI-HDG-003":
             title = match.group(1)
             status = "pass" if title.isupper() else "fail"
-            actual = "Huruf kapital" if status == "pass" else "Mengandung huruf nonkapital"
+            actual = title
         elif rule["rule_code"] == "PPKI-HDG-004":
             values, offset = [], 0
             for run in paragraph.runs:

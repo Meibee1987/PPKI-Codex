@@ -69,6 +69,7 @@ with st.form("audit_form", clear_on_submit=True):
     for index, text in candidates:
         if st.checkbox(f"Paragraf {index}: {text}", key=f"chapter_{document_key}_{index}"):
             heading_confirmed.add(index)
+    heading_only = st.checkbox("Batasi rencana perbaikan pada heading BAB yang dikonfirmasi.")
     submitted = st.form_submit_button("Audit")
 
 if submitted:
@@ -90,10 +91,10 @@ if submitted:
             st.write(f"Diperiksa: {counts['diperiksa']} | Sesuai: {counts['sesuai']} | Tidak sesuai: {counts['tidak_sesuai']} | Tidak didukung: {counts['tidak_didukung']} | Perlu review: {counts['perlu_review']}")
             st.dataframe(findings, hide_index=True)
             body_confirmed = bool(confirmed and style_id)
-            plan = plan_changes(uploaded.getvalue(), rules, degree, style_id, body_confirmed)
+            plan = plan_changes(uploaded.getvalue(), rules, degree, style_id, body_confirmed, heading_confirmed, heading_only)
             signature = sha256(uploaded.getvalue() + json.dumps(rules, sort_keys=True).encode()).hexdigest()
-            skipped = skipped_changes(uploaded.getvalue(), rules, degree, findings, plan, style_id, body_confirmed)
-            st.session_state.audit_t4a = {"signature": signature, "degree": degree, "style": style_id, "confirmed": body_confirmed, "heading_confirmed": heading_confirmed, "plan": plan, "before": counts, "skipped": skipped}
+            skipped = skipped_changes(uploaded.getvalue(), rules, degree, findings, plan, style_id, body_confirmed, heading_only)
+            st.session_state.audit_t4a = {"signature": signature, "degree": degree, "style": style_id, "confirmed": body_confirmed, "heading_confirmed": heading_confirmed, "heading_only": heading_only, "plan": plan, "before": counts, "skipped": skipped}
 
 snapshot = st.session_state.get("audit_t4a")
 if snapshot and uploaded is not None and 'rules' in locals():
@@ -105,11 +106,9 @@ if snapshot and uploaded is not None and 'rules' in locals():
             if st.button("Terapkan Perbaikan"):
                 st.session_state.pop("output_t4a", None)
                 try:
-                    output, after, changes = format_docx(uploaded.getvalue(), rules, degree, style_id, snapshot["confirmed"])
+                    output, after, changes = format_docx(uploaded.getvalue(), rules, degree, style_id, snapshot["confirmed"], snapshot["heading_confirmed"], snapshot["heading_only"])
                     if changes != snapshot["plan"]:
                         raise ValueError("Rencana berubah; lakukan audit kembali.")
-                    if snapshot["heading_confirmed"]:
-                        after = audit_docx(output, rules, degree, style_id, snapshot["confirmed"], snapshot["heading_confirmed"])
                 except (ValueError, OSError) as exc:
                     st.error(f"Perbaikan gagal divalidasi: {exc}")
                 else:

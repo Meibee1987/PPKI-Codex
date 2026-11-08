@@ -121,8 +121,8 @@ def test_master_streamlit_checkboxes_are_independent_of_body_style():
     with patch("streamlit.file_uploader", return_value=SimpleNamespace(name=path.name, getvalue=lambda: data)):
         app = AppTest.from_file(Path(__file__).resolve().parent.parent / "app.py", default_timeout=15).run()
         assert app.selectbox[1].value is None
-        assert len(app.checkbox) == 4
-        assert [c.label.split(":", 1)[0] for c in app.checkbox[1:]] == ["Paragraf 40", "Paragraf 60", "Paragraf 75"]
+        assert len(app.checkbox) == 5
+        assert [c.label.split(":", 1)[0] for c in app.checkbox[1:4]] == ["Paragraf 40", "Paragraf 60", "Paragraf 75"]
         app.checkbox[1].check(); app.button[0].click().run()
         assert not app.exception
         assert app.session_state["audit_t4a"]["heading_confirmed"] == {40}

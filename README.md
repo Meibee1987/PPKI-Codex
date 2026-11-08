@@ -40,8 +40,10 @@ Audit heading read-only menampilkan kandidat Heading 1 yang berpola BAB. Operato
 mengonfirmasi setiap kandidat secara terpisah; kandidat lain tetap perlu review.
 Aturan `PPKI-HDG-003`, `004`, dan `006` diperiksa terbatas pada paragraf teks
 sederhana yang memuat nomor BAB dan judul bersama. Bold yang tidak eksplisit,
-penomoran otomatis, dan konteks yang ambigu perlu review. Aturan heading lainnya
-belum didukung; tidak ada formatter heading.
+penomoran otomatis, dan konteks yang ambigu perlu review. Formatter BAB terbatas
+dapat memperbaiki `HDG-003`, `004`, dan `006` yang Auto pada kandidat yang
+dikonfirmasi dan aman. Pilih opsi rencana khusus heading untuk menjaga halaman dan
+teks isi dari perbaikan lain. Aturan heading lainnya belum didukung.
 
 Hasil pengujian tiga dokumen representatif dan keterbatasan review visual tersedia
 di [laporan T5](docs/T5_REPORT.md). Pemilik menerima tiga fixture untuk cakupan

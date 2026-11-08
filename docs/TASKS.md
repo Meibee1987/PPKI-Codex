@@ -70,7 +70,11 @@ T7A (audit heading read-only) selesai untuk cakupan terbatas: `PPKI-HDG-003`,
 `004`, dan `006` pada Heading 1 yang dikonfirmasi dan memuat nomor BAB serta
 judul dalam satu paragraf sederhana. Heading 2 dan 3 baru ditampilkan sebagai
 kandidat; aturan lainnya tetap belum didukung atau perlu review. Formatter
-heading dan abstrak belum dibuat. T5 masih menunggu pemeriksaan akhir Word.
+heading dan abstrak belum dibuat pada tahap T7A. T5 masih menunggu pemeriksaan akhir Word.
+
+T7B selesai untuk cakupan BAB terbatas: `PPKI-HDG-003`, `004`, dan `006`
+yang Auto dapat diperbaiki pada kandidat yang dikonfirmasi dan aman; lihat
+[laporan T7B](T7B_REPORT.md). Penomoran, subbab, dan struktur ambigu belum didukung.
 
 ## T7 — AI opsional [P2, hanya kalau terbukti dibutuhkan]
 Satu pemanggilan API model yang **konfigurasinya tidak hardcode** untuk usulan klasifikasi paragraf ambigu, **opt-in per dokumen**. Tidak boleh mengirim file penuh otomatis. Hasil AI berupa usulan yang divalidasi dan disetujui sebelum menyentuh DOCX.
