@@ -333,14 +333,13 @@ def format_docx(data, rules, degree, style, confirmed, heading_confirmed=None, h
     result = output.getvalue()
     try:
         # Keep every original package part byte-for-byte; only the audited main XML changes.
-        if any(item["rule_code"] in HEADING_CODES for item in changes):
-            with ZipFile(BytesIO(data)) as original, ZipFile(BytesIO(result)) as generated:
-                replacement = generated.read("word/document.xml")
-                rebuilt = BytesIO()
-                with ZipFile(rebuilt, "w") as target:
-                    for info in original.infolist():
-                        target.writestr(info, replacement if info.filename == "word/document.xml" else original.read(info))
-                result = rebuilt.getvalue()
+        with ZipFile(BytesIO(data)) as original, ZipFile(BytesIO(result)) as generated:
+            replacement = generated.read("word/document.xml")
+            rebuilt = BytesIO()
+            with ZipFile(rebuilt, "w") as target:
+                for info in original.infolist():
+                    target.writestr(info, replacement if info.filename == "word/document.xml" else original.read(info))
+            result = rebuilt.getvalue()
         with ZipFile(BytesIO(data)) as original, ZipFile(BytesIO(result)) as formatted:
             if len(original.namelist()) != len(set(original.namelist())) or set(original.namelist()) != set(formatted.namelist()):
                 raise ValueError("Struktur paket DOCX berubah.")

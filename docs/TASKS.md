@@ -117,6 +117,13 @@ dilewati tersedia melalui expander. Ringkasan tetap dihitung per aturan dengan
 fungsi sebelumnya; rencana Auto dan unduhan tetap terpisah dari diagnostik.
 Rincian pengujian: [laporan T12](T12_REPORT.md).
 
+## T13 — Acceptance testing [teknis lulus; belum ditutup]
+
+Empat fixture lulus acceptance teknis dan regresi. Pemeriksaan visual akhir
+Microsoft Word dan pengujian dokumen nyata anonim masih PENDING, sehingga T13
+belum ditutup. Lihat [laporan T13](T13_REPORT.md) dan
+[checklist Word](T13_WORD_CHECKLIST.md).
+
 ## Definisi Done setiap task
 - [ ] Perubahan kode sesuai lingkup task dan tidak mengubah aturan sumber.
 - [ ] Tes yang relevan ada dan dijalankan; hasil dilaporkan.

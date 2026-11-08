@@ -71,6 +71,10 @@ Tampilan T12 memisahkan upload, audit dan ringkasan, detail diagnostik, serta
 rencana perbaikan dan unduhan. Alasan perubahan yang dilewati tersedia dalam
 expander. Lihat [laporan T12](docs/T12_REPORT.md).
 
+Hasil acceptance teknis empat fixture tersedia di [laporan T13](docs/T13_REPORT.md).
+Pemeriksaan Word dan dokumen nyata masih menunggu operator; gunakan
+[checklist T13](docs/T13_WORD_CHECKLIST.md).
+
 Hasil pengujian tiga dokumen representatif dan keterbatasan review visual tersedia
 di [laporan T5](docs/T5_REPORT.md). Pemilik menerima tiga fixture untuk cakupan
 MVP; hasil pemeriksaan manual dan validasi batas ukuran file masih diperlukan.
