@@ -51,6 +51,12 @@ tidak menentukan nomor halaman hasil render atau kepatuhan: `PPKI-LAY-023` dan
 `PPKI-LAY-024` tetap belum didukung karena kunci validasinya `manual.not-implemented`.
 Hasil diagnostik memerlukan pemeriksaan di Word; tidak ada formatter nomor halaman.
 
+Bagian **Audit Tabel, Gambar, dan Caption** menginventarisasi objek body, kandidat
+caption berstyle yang dikenali, dan dugaan hubungan berdekatan. Operator dapat
+mengonfirmasi dugaan tersebut, tetapi hasilnya tetap perlu review: semua aturan
+terkait yang ditemukan berkunci `manual.not-implemented` dan belum didukung.
+Lihat [laporan T9A](docs/T9A_REPORT.md) untuk cakupan dan keterbatasannya.
+
 Hasil pengujian tiga dokumen representatif dan keterbatasan review visual tersedia
 di [laporan T5](docs/T5_REPORT.md). Pemilik menerima tiga fixture untuk cakupan
 MVP; hasil pemeriksaan manual dan validasi batas ukuran file masih diperlukan.

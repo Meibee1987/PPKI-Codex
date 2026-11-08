@@ -89,6 +89,13 @@ penomoran lain yang berkunci `manual.not-implemented` tetap `not_supported`;
 tidak ada klaim lulus/gagal maupun formatter nomor halaman. Penomoran hasil
 render dan cakupan bagian dokumen perlu pemeriksaan manual di Word.
 
+## T9A — Audit tabel, gambar, dan caption read-only [cakupan diagnostik]
+
+Inventaris objek body dan dugaan hubungan caption dapat ditampilkan untuk review.
+Sebanyak 76 aturan terkait yang ditemukan semuanya `manual.not-implemented` dan
+tetap `not_supported`; tidak ada validator kepatuhan atau formatter untuknya.
+Rincian tersedia di [laporan T9A](T9A_REPORT.md).
+
 ## Definisi Done setiap task
 - [ ] Perubahan kode sesuai lingkup task dan tidak mengubah aturan sumber.
 - [ ] Tes yang relevan ada dan dijalankan; hasil dilaporkan.

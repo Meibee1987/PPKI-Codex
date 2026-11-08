@@ -7,7 +7,7 @@ import csv
 from io import StringIO
 
 from core.rules import filter_rules, load_rules
-from core.audit import audit_docx, summarize, font_candidates, heading_candidates, page_number_structure
+from core.audit import audit_docx, summarize, font_candidates, heading_candidates, page_number_structure, illustration_structure
 from core.formatter import format_docx, plan_changes, skipped_changes
 
 
@@ -34,9 +34,11 @@ else:
     st.dataframe([{"Domain": domain, "Jumlah": count} for domain, count in sorted(Counter(rule["domain"] for rule in rules).items())], hide_index=True)
 
 styles = {}
+illustrations = None
 if uploaded is not None:
     try:
         styles = font_candidates(uploaded.getvalue())
+        illustrations = illustration_structure(uploaded.getvalue())
     except ValueError as exc:
         st.error(str(exc))
 
@@ -70,6 +72,13 @@ with st.form("audit_form", clear_on_submit=True):
         if st.checkbox(f"Paragraf {index}: {text}", key=f"chapter_{document_key}_{index}"):
             heading_confirmed.add(index)
     heading_only = st.checkbox("Batasi rencana perbaikan pada heading BAB yang dikonfirmasi.")
+    caption_confirmed = set()
+    if illustrations and illustrations["caption"]:
+        st.write("Konfirmasi dugaan hubungan caption dan objek (opsional):")
+        for caption in illustrations["caption"]:
+            if caption["dugaan_objek"] != "Tidak diketahui":
+                if st.checkbox(f"{caption['lokasi']}: {caption['teks']} → {caption['dugaan_objek']}", key=f"caption_{document_key}_{caption['lokasi']}"):
+                    caption_confirmed.add(caption["lokasi"])
     submitted = st.form_submit_button("Audit")
 
 if submitted:
@@ -96,6 +105,20 @@ if submitted:
                 st.dataframe(page_number_structure(uploaded.getvalue()), hide_index=True)
             except ValueError as exc:
                 st.warning(str(exc))
+            if illustrations is not None:
+                st.subheader("Audit Tabel, Gambar, dan Caption")
+                captions = [{**item, "hubungan_dikonfirmasi": item["lokasi"] in caption_confirmed} for item in illustrations["caption"]]
+                st.write(f"Tabel: {len(illustrations['tabel'])} | Gambar inline: {len(illustrations['gambar'])} | Kandidat caption tabel: {sum(item['jenis'] == 'tabel' for item in captions)} | Kandidat caption gambar: {sum(item['jenis'] == 'gambar' for item in captions)} | Objek kompleks: {len(illustrations['objek_kompleks'])}")
+                st.caption("Inventaris struktur memerlukan review; konfirmasi dugaan hubungan bukan validasi aturan. Aturan manual.not-implemented tetap tidak didukung.")
+                for label, rows in (("Tabel", illustrations["tabel"]), ("Gambar inline", illustrations["gambar"]), ("Kandidat caption", captions), ("Objek kompleks", illustrations["objek_kompleks"])):
+                    if rows:
+                        st.write(label)
+                        st.dataframe(rows, hide_index=True)
+                rule_codes = {r["rule_code"] for r in rules if r["domain"] in {"TBL", "FIG"} or any(term in (r["element"] + " " + r["official_requirement"]).casefold() for term in ("caption", "ilustrasi", "gambar", "tabel"))}
+                related_findings = [item for item in findings if item["rule_code"] in rule_codes]
+                if related_findings:
+                    st.write("Status aturan terkait")
+                    st.dataframe(related_findings, hide_index=True)
             body_confirmed = bool(confirmed and style_id)
             plan = plan_changes(uploaded.getvalue(), rules, degree, style_id, body_confirmed, heading_confirmed, heading_only)
             signature = sha256(uploaded.getvalue() + json.dumps(rules, sort_keys=True).encode()).hexdigest()

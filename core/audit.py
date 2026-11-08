@@ -9,6 +9,8 @@ from docx import Document
 from docx.opc.exceptions import PackageNotFoundError
 from docx.oxml.ns import qn
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.table import Table
+from docx.text.paragraph import Paragraph
 
 from core.rules import filter_rules
 
@@ -231,6 +233,83 @@ def is_chapter_candidate(paragraph):
 def heading_candidates(data):
     document = Document(BytesIO(data))
     return [(index, paragraph.text) for index, paragraph in enumerate(document.paragraphs, 1) if is_chapter_candidate(paragraph)]
+
+
+def illustration_structure(data: bytes) -> dict:
+    """Describe body objects and caption candidates without judging PPKI rules."""
+    try:
+        document = Document(BytesIO(data))
+    except (PackageNotFoundError, BadZipFile, KeyError, ValueError, OSError) as exc:
+        raise ValueError("Struktur tabel dan gambar DOCX tidak dapat dibaca.") from exc
+    tables, images, captions, complex_objects, blocks = [], [], [], [], []
+    section, paragraph_index = 1, 0
+    for block in document.iter_inner_content():
+        if isinstance(block, Table):
+            header_rows, merged, unknown_merge = [], False, False
+            for row_index, row in enumerate(block.rows, 1):
+                trpr = row._tr.trPr
+                header = trpr.find(qn("w:tblHeader")) if trpr is not None else None
+                if header is not None and header.get(qn("w:val"), "true").lower() not in ("0", "false", "off"):
+                    header_rows.append(row_index)
+                for cell in row._tr.tc_lst:
+                    tcpr = cell.tcPr
+                    if tcpr is None:
+                        continue
+                    span = tcpr.find(qn("w:gridSpan"))
+                    if span is not None:
+                        try:
+                            merged |= int(span.get(qn("w:val"), "0")) > 1
+                        except ValueError:
+                            unknown_merge = True
+                    if tcpr.find(qn("w:vMerge")) is not None or tcpr.find(qn("w:hMerge")) is not None:
+                        merged = True
+            label = f"tabel:{len(tables) + 1}"
+            tables.append({"lokasi": label, "section": section, "baris": len(block.rows), "kolom_grid": len(block.columns), "baris_header_berulang": ", ".join(map(str, header_rows)) or "Tidak ditandai", "sel_gabungan": "Terdeteksi" if merged else "Tidak dapat dipastikan" if unknown_merge else "Tidak terdeteksi", "status": "needs_review"})
+            blocks.append({"kind": "tabel", "location": label})
+        elif isinstance(block, Paragraph):
+            paragraph_index += 1
+            inlines = block._p.xpath(".//wp:inline")
+            anchors = block._p.xpath(".//wp:anchor")
+            block_items = []
+            for inline in inlines:
+                if inline.xpath(".//a:blip"):
+                    label = f"gambar:{len(images) + 1}"
+                    images.append({"lokasi": label, "paragraf": paragraph_index, "section": section, "jenis": "Gambar inline", "status": "needs_review"})
+                    block_items.append({"kind": "gambar", "location": label})
+                else:
+                    complex_objects.append({"lokasi": f"paragraf:{paragraph_index}", "jenis": "Objek inline non-gambar atau tidak dikenali", "status": "needs_review"})
+            for _ in anchors:
+                complex_objects.append({"lokasi": f"paragraf:{paragraph_index}", "jenis": "Objek mengambang; isi dan posisi perlu review", "status": "needs_review"})
+            for _ in block._p.xpath(".//w:pict"):
+                complex_objects.append({"lokasi": f"paragraf:{paragraph_index}", "jenis": "Objek VML; isi dan posisi perlu review", "status": "needs_review"})
+            name = block.style.name.casefold().strip()
+            is_caption_style = block.style.style_id == "Caption" or name == "caption" or name.startswith("caption ") or name in {"table caption", "figure caption", "judul tabel", "judul gambar", "keterangan tabel", "keterangan gambar"}
+            match = re.match(r"^\s*(tabel|gambar)\b", block.text, flags=re.IGNORECASE)
+            if is_caption_style and match:
+                kind = match.group(1).casefold()
+                caption = {"lokasi": f"paragraf:{paragraph_index}", "section": section, "style": block.style.name, "jenis": kind, "teks": block.text, "dugaan_objek": "Tidak diketahui", "status": "needs_review"}
+                captions.append(caption)
+                block_items.append({"kind": "caption", "caption": caption})
+            blocks.append(block_items)
+            if block._p.pPr is not None and block._p.pPr.find(qn("w:sectPr")) is not None:
+                section += 1
+    # Adjacent objects are suggestions only, not confirmed semantic links or layout.
+    for i, block in enumerate(blocks):
+        if not isinstance(block, list):
+            continue
+        for entry in block:
+            if entry["kind"] != "caption":
+                continue
+            caption = entry["caption"]
+            neighbor = i + 1 if caption["jenis"] == "tabel" else i - 1
+            if not 0 <= neighbor < len(blocks):
+                continue
+            adjacent = blocks[neighbor]
+            candidates = adjacent if isinstance(adjacent, list) else [adjacent]
+            candidates = [item for item in candidates if item["kind"] == caption["jenis"]]
+            if len(candidates) == 1:
+                caption["dugaan_objek"] = candidates[0]["location"] + " (berdekatan; belum pasti)"
+    return {"tabel": tables, "gambar": images, "caption": captions, "objek_kompleks": complex_objects}
 
 
 def page_number_structure(data: bytes) -> list[dict]:
