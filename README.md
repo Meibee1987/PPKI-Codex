@@ -84,6 +84,9 @@ v1.2A.1 memisahkan `eligible`, `needs_change` dan `safe_to_apply` per aturan.
 Kandidat dengan identitas isi yang belum dikonfirmasi tetap membutuhkan review;
 lihat [evaluasi cakupan](docs/V1_2A1_SCOPE_IMPROVEMENT.md).
 
+Review operator privat tersedia secara opt-in pada localhost; cara menjalankan
+dan batas evaluasinya ada di [laporan v1.2A.2](docs/V1_2A2_OPERATOR_VALIDATION.md).
+
 Tampilan T12 memisahkan upload, audit dan ringkasan, detail diagnostik, serta
 rencana perbaikan dan unduhan. Alasan perubahan yang dilewati tersedia dalam
 expander. Lihat [laporan T12](docs/T12_REPORT.md).

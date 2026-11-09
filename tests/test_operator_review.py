@@ -74,6 +74,15 @@ def test_existing_foreign_labels_and_modified_samples_are_rejected(tmp_path):
     assert (tmp_path / "tesis_uji.docx").read_bytes() == data
 
 
+def test_blank_submission_remains_pending(tmp_path):
+    _, digest, locations = make_review(tmp_path)
+    save_label(tmp_path, digest, set(locations), locations[0], "", {code: "" for code in RULE_CODES})
+    review = load_review(load_rules(), tmp_path)
+    result = evaluate_review(review["locations"], review["recognized"], review["scope"], review["labels"])
+    assert result["jenis_pending"] == 4 and result["aturan_pending"] == 16
+    assert result["sampel_terukur"] == 0
+
+
 def test_evaluation_excludes_pending_unsure_and_abstentions():
     locations = [f"paragraf:{i}" for i in range(1, 9)]
     recognized = {loc: {"jenis": "teks_isi" if i < 7 else "khusus"} for i, loc in enumerate(locations, 1)}
@@ -83,12 +92,22 @@ def test_evaluation_excludes_pending_unsure_and_abstentions():
     result = evaluate_review(locations, recognized, scope, labels)
     body = result["klasifikasi"][0]
     assert (body["tp"], body["fp"], body["fn"], body["prediksi_ambigu"]) == (6, 0, 1, 1)
-    assert body["precision"] == 1 and body["recall"] == round(6 / 7, 3)
+    assert body["precision"] is None and body["recall"] is None
     assert result["jenis_pending"] == 1
     safety = result["keamanan"][0]
     assert safety["dilabeli"] == 7 and safety["prediksi_review"] == 6
     assert safety["operator_aman_prediksi_dilindungi"] == 1
     assert result["aturan_pending"] == 25
+
+
+def test_metrics_require_positive_and_negative_labels():
+    locations = [f"paragraf:{i}" for i in range(10)]
+    recognized = {loc: {"jenis": "teks_isi" if i in (0, 1, 2, 3, 5) else "bab"} for i, loc in enumerate(locations)}
+    scope = {loc: {"keputusan": "needs_review", "rule_decisions": [{"rule_code": code, "safe_to_apply": False} for code in RULE_CODES]} for loc in locations}
+    labels = {loc: {"operator_role": "teks_isi" if i < 5 else "bab"} for i, loc in enumerate(locations)}
+    body = evaluate_review(locations, recognized, scope, labels)["klasifikasi"][0]
+    assert (body["tp"], body["fp"], body["fn"]) == (4, 1, 1)
+    assert body["precision"] == .8 and body["recall"] == .8
 
 
 def test_streamlit_private_review_opt_in_save_and_local_binding(tmp_path):

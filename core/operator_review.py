@@ -89,6 +89,8 @@ def save_label(folder, digest, locations, location, role, safety):
                 writer = csv.DictWriter(target, fieldnames=FIELDS)
                 writer.writeheader()
                 writer.writerows(labels[key] for key in current_locations if key in labels)
+            if sha256((folder / "tesis_uji.docx").read_bytes()).hexdigest() != digest:
+                raise ValueError("Dokumen berubah selama penyimpanan; label tidak disimpan.")
             os.replace(temp_path, folder / "scope_operator_labels.csv")
         finally:
             if temp_path is not None and temp_path.exists():
@@ -149,7 +151,8 @@ def evaluate_review(locations, recognized, scope, labels):
         fn = sum(truth == category and pred != category for truth, pred in comparisons)
         abstained = sum(truth == category and pred is None for truth, pred in comparisons)
         # A small, selectively labeled sample is not representative of the document.
-        enough = tp + fn >= 5
+        # Require labeled examples on both sides; this is still only a small-sample indicator.
+        enough = tp + fn >= 5 and sum(truth != category for truth, _ in comparisons) >= 5
         classification.append({"kategori": category, "dilabeli_positif": tp + fn, "tp": tp, "fp": fp, "fn": fn, "prediksi_ambigu": abstained,
                                "precision": round(tp / (tp + fp), 3) if enough and tp + fp else None,
                                "recall": round(tp / (tp + fn), 3) if enough else None})

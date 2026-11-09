@@ -157,6 +157,13 @@ Penanda ejaan/bookmark dianalisis pada salinan tanpa melonggarkan perlindungan
 field/objek atau mengubah formatter. Acuan operator untuk 40 sampel lokal masih
 PENDING. Lihat [laporan perbaikan cakupan](V1_2A1_SCOPE_IMPROVEMENT.md).
 
+## v1.2A.2 — Review operator privat [antarmuka tersedia; label PENDING]
+
+Panel lokal mengumpulkan label eksplisit per sampel dan aturan dalam CSV privat
+terikat hash dokumen. Prediksi ambigu dan jawaban belum yakin tetap terpisah;
+hasil review tidak mengaktifkan formatter. Pelabelan dan pengukuran akurasi
+masih menunggu operator. Lihat [laporan v1.2A.2](V1_2A2_OPERATOR_VALIDATION.md).
+
 ## Definisi Done setiap task
 - [ ] Perubahan kode sesuai lingkup task dan tidak mengubah aturan sumber.
 - [ ] Tes yang relevan ada dan dijalankan; hasil dilaporkan.

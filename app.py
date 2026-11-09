@@ -293,7 +293,7 @@ if os.environ.get("PPKI_LOCAL_REVIEW") == "1" and 'rules' in locals():
                         st.success("Label disimpan di CSV privat. Label ini tidak mengubah rencana perbaikan.")
                     evaluation = operator_review.evaluate_review(review_data["locations"], review_data["recognized"], review_data["scope"], review_data["labels"])
                     st.write(f"Jenis PENDING/belum yakin: {evaluation['jenis_pending']} | Penilaian aturan PENDING/belum yakin: {evaluation['aturan_pending']}")
-                    st.caption("Hanya label eksplisit dibandingkan. Prediksi ambigu dihitung dalam FN dan juga ditampilkan terpisah. Precision/recall ditampilkan setelah setidaknya lima label positif per kategori; hasil hanya berlaku untuk sampel yang dilabeli.")
+                    st.caption("Hanya label eksplisit dibandingkan. Prediksi ambigu dihitung dalam FN dan juga ditampilkan terpisah. Precision/recall memerlukan minimal lima label positif dan lima label kategori lain; hasil hanya berlaku untuk sampel yang dilabeli.")
                     st.dataframe(evaluation["klasifikasi"], hide_index=True)
                     st.dataframe(evaluation["keamanan"], hide_index=True)
                 except ValueError as exc:
