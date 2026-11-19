@@ -12,6 +12,94 @@ from docx.text.paragraph import Paragraph
 from core.audit import paragraph_value
 
 
+def document_structure_map(data: bytes) -> dict:
+    """Map body locations without copying document text or deciding heading formatting."""
+    from core.formatter import section_skip_reason
+    document = Document(BytesIO(data))
+    recognized = recognize_structure(data)
+    paragraphs = document.paragraphs
+    ends = [i for i, p in enumerate(paragraphs, 1) if p._p.pPr is not None and p._p.pPr.find(qn("w:sectPr")) is not None]
+    section_count = len(document.sections)
+    section_known = (len(ends) + 1 == section_count and len(document.element.body.xpath('.//w:sectPr')) == section_count)
+    sections = []
+    if section_known:
+        start = 1
+        for index, (end, section) in enumerate(zip([*ends, len(paragraphs)], document.sections), 1):
+            reason = section_skip_reason(section)
+            sections.append({"section": index, "start": start, "end": end, "safe": reason is None, "reason": reason or "Section portrait satu kolom."})
+            start = end + 1
+    chapter_rows = []
+    numbers = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5, "VI": 6, "VII": 7, "VIII": 8, "IX": 9, "X": 10}
+    for row in recognized:
+        if row["jenis"] != "bab" or not row["lokasi"].startswith("paragraf:"):
+            continue
+        index = int(row["lokasi"].split(":")[1])
+        paragraph = paragraphs[index - 1]
+        match = re.match(r"^\s*(?:BAB\s+)?(I|II|III|IV|V|VI|VII|VIII|IX|X)\s+\S", paragraph.text, re.IGNORECASE)
+        if not match or paragraph.style.style_id != "Heading1" or '\t' in paragraph.text:
+            continue
+        if paragraph._p.xpath('.//w:hyperlink | .//w:fldChar | .//w:fldSimple | .//w:instrText | .//w:ins | .//w:del'):
+            continue
+        chapter_rows.append((index, numbers[match.group(1).upper()]))
+    # Require an unambiguous sequence: repeated TOC entries or missing numbers invalidate it.
+    body_positions = set()
+    for row in recognized:
+        if row["jenis"] != "teks_isi" or not row["lokasi"].startswith("paragraf:"):
+            continue
+        index = int(row["lokasi"].split(":")[1])
+        paragraph = paragraphs[index - 1]
+        if (len(paragraph.text.strip()) >= 80 and not paragraph._p.xpath('.//w:hyperlink | .//w:fldChar | .//w:fldSimple | .//w:instrText | .//w:drawing | .//w:pict | .//w:object | .//w:footnoteReference | .//w:endnoteReference | .//w:ins | .//w:del | .//m:oMath')):
+            body_positions.add(index)
+    toc_positions = {int(row["lokasi"].split(":")[1]) for row in recognized if row["jenis"] == "entri_daftar_isi" and row["lokasi"].startswith("paragraf:")}
+    between_has_body = all(any(start < body < end for body in body_positions) for (start, _), (end, _) in zip(chapter_rows, chapter_rows[1:]))
+    toc_precedes_body = bool(chapter_rows) and not any(chapter_rows[0][0] <= position <= chapter_rows[-1][0] for position in toc_positions)
+    verified = len(chapter_rows) >= 3 and between_has_body and toc_precedes_body and [number for _, number in chapter_rows] == list(range(1, len(chapter_rows) + 1))
+    chapter_indexes = {index for index, _ in chapter_rows}
+    stops = [int(row["lokasi"].split(":")[1]) for row in recognized
+             if row["lokasi"].startswith("paragraf:") and (row["jenis"] in {"daftar_pustaka", "lampiran"} or (row["style"] == "Heading1" and int(row["lokasi"].split(":")[1]) not in chapter_indexes))]
+    chapters = []
+    for index, number in chapter_rows:
+        later = [position for position, _ in chapter_rows if position > index] + [position for position in stops if position > index]
+        chapters.append({"number": number, "start": index, "end": min(later) - 1 if later else len(paragraphs), "boundary_status": "detected" if verified else "needs_review"})
+    blocks = []
+    paragraph_index = table_index = 0
+    for block in document.iter_inner_content():
+        if isinstance(block, Paragraph):
+            paragraph_index += 1
+            blocks.append({"location": f"paragraf:{paragraph_index}", "position": paragraph_index, "object": "gambar" if block._p.xpath('.//w:drawing | .//w:pict') else None})
+        elif isinstance(block, Table):
+            table_index += 1
+            blocks.append({"location": f"tabel:{table_index}", "position": paragraph_index, "object": "tabel"})
+    caption_types = {row["lokasi"]: row["jenis"] for row in recognized if row["jenis"] in {"caption_tabel", "caption_gambar"}}
+    objects, caption_relations = [], []
+    for offset, block in enumerate(blocks):
+        if block["object"]:
+            position = block["position"]
+            chapter = next((c["number"] for c in chapters if c["start"] <= position <= c["end"]), None)
+            if block["object"] == "tabel":
+                section = next((s["section"] for s in sections if s["start"] <= position + (position in ends) <= s["end"]), None)
+            else:
+                section = next((s["section"] for s in sections if s["start"] <= position <= s["end"]), None)
+            objects.append({"lokasi": block["location"], "jenis": block["object"], "chapter": chapter, "section": section, "status": "needs_review"})
+            for neighbor in (offset - 1, offset + 1):
+                if 0 <= neighbor < len(blocks):
+                    caption = blocks[neighbor]["location"]
+                    if caption_types.get(caption) == "caption_" + block["object"]:
+                        caption_relations.append({"caption": caption, "objek": block["location"], "status": "needs_review"})
+    object_by_table = {obj["lokasi"]: obj for obj in objects if obj["jenis"] == "tabel"}
+    elements = []
+    for row in recognized:
+        if not row["lokasi"].startswith("paragraf:"):
+            table = object_by_table.get(row["lokasi"].split("/")[0], {})
+            elements.append({"lokasi": row["lokasi"], "jenis": row["jenis"], "chapter": table.get("chapter"), "section": table.get("section"), "status": "needs_review"})
+            continue
+        index = int(row["lokasi"].split(":")[1])
+        chapter = next((c["number"] for c in chapters if c["start"] <= index <= c["end"]), None)
+        section = next((s["section"] for s in sections if s["start"] <= index <= s["end"]), None)
+        elements.append({"lokasi": row["lokasi"], "jenis": row["jenis"], "chapter": chapter, "section": section, "status": row["status"]})
+    return {"chapters": chapters, "sections": sections, "section_known": section_known, "elements": elements, "objects": objects, "caption_relations": caption_relations}
+
+
 def recognize_structure(data: bytes) -> list[dict]:
     try:
         document = Document(BytesIO(data))
@@ -129,15 +217,18 @@ def recognize_structure(data: bytes) -> list[dict]:
     return rows
 
 
-def safe_format_scope(data: bytes, rules: list[dict], degree: str) -> list[dict]:
+def safe_format_scope(data: bytes, rules: list[dict], degree: str, include_document_defaults: bool = False, use_structure_map: bool = False) -> list[dict]:
     """Per-rule experimental assessment; never authorizes the live formatter."""
     from copy import deepcopy
     from types import SimpleNamespace
     from core.audit import font_findings, paragraph_findings, PARAGRAPH_RULES
-    from core.formatter import font_targets
+    from core.formatter import font_targets, section_is_safe
     from core.rules import filter_rules
 
     document = Document(BytesIO(data))
+    # AI evidence cannot override section safety; multi-section mapping remains review-only.
+    section_safe_for_ai = len(document.sections) == 1 and section_is_safe(document.sections[0])
+    mapping = document_structure_map(data) if use_structure_map else None
     recognized = recognize_structure(data)
     by_location = {item["lokasi"]: item for item in recognized}
     applicable, review = filter_rules(rules, degree)
@@ -179,6 +270,14 @@ def safe_format_scope(data: bytes, rules: list[dict], degree: str) -> list[dict]
             chapter_context = None
         if section:
             chapter_context = None
+        paragraph_section_safe = section_safe_for_ai
+        mapped_chapter = None
+        if mapping is not None:
+            mapped_section = next((s for s in mapping["sections"] if s["start"] <= index <= s["end"]), None)
+            paragraph_section_safe = mapped_section is not None and mapped_section["safe"] and not section
+            mapped_chapter = next((c for c in mapping["chapters"] if c["start"] < index <= c["end"] and c["boundary_status"] == "detected"), None)
+            if mapped_chapter is not None and kind == "teks_isi" and not section:
+                chapter_context = "mapped"
 
         # Only the analysis clone loses non-content markers. The original is untouched.
         clone = Paragraph(deepcopy(p._p), p._parent)
@@ -234,7 +333,7 @@ def safe_format_scope(data: bytes, rules: list[dict], degree: str) -> list[dict]
             if not codes:
                 check["eligible"] = True
                 analysis = SimpleNamespace(paragraphs=[clone])
-                finding = (font_findings(analysis, rule, clone.style.style_id, True) if supported_font else paragraph_findings(analysis, rule, spec[2], clone.style.style_id, True))[0]
+                finding = (font_findings(analysis, rule, clone.style.style_id, True) if supported_font else paragraph_findings(analysis, rule, spec[2], clone.style.style_id, True, include_defaults=include_document_defaults))[0]
                 check["status"] = finding["status"]
                 if finding["status"] in {"pass", "fail"}:
                     check["needs_change"] = finding["status"] == "fail"
@@ -245,7 +344,7 @@ def safe_format_scope(data: bytes, rules: list[dict], degree: str) -> list[dict]
                     codes.append("fix_mode_not_auto")
                 if not identity_certain:
                     codes.append("body_identity_unconfirmed")
-                    if chapter_context != "detected":
+                    if chapter_context not in {"detected", "mapped"}:
                         codes.append("chapter_context_unconfirmed")
                     if p.style.style_id != "BodyText":
                         codes.append("style_identity_ambiguous")
@@ -258,7 +357,10 @@ def safe_format_scope(data: bytes, rules: list[dict], degree: str) -> list[dict]
         changes = [c["rule_code"] for c in checks if c["safe_to_apply"] and c["needs_change"]]
         decision = "protected" if hard_protection else "auto_safe" if safe_codes else "needs_review"
         reason_code = reason or ("experimental_scope" if safe_codes else "operator_review_required")
-        output.append({"lokasi": location, "jenis": kind, "keputusan": decision, "aturan_diizinkan": safe_codes, "aturan_berubah": changes, "reason_code": reason_code, "alasan": reason_labels[reason_code], "rule_decisions": checks})
+        text = p.text.strip()
+        ai_supported_identity = (paragraph_section_safe and reason is None and chapter_context in {"detected", "mapped"} and p.style.style_id == "Normal"
+                                 and len(text) >= 80 and text[-1:] in ".!?" and not text.startswith(('"', "'", "“", "‘")))
+        output.append({"lokasi": location, "jenis": kind, "keputusan": decision, "aturan_diizinkan": safe_codes, "aturan_berubah": changes, "reason_code": reason_code, "alasan": reason_labels[reason_code], "rule_decisions": checks, "ai_supported_identity": ai_supported_identity, "ai_section_safe": paragraph_section_safe, "chapter_context": chapter_context})
     for item in recognized:
         if item["jenis"] == "paragraf_tabel":
             output.append({"lokasi": item["lokasi"], "jenis": item["jenis"], "keputusan": "protected", "aturan_diizinkan": [], "aturan_berubah": [], "reason_code": "table_cell", "alasan": "Paragraf sel tabel dilindungi.", "rule_decisions": [{"rule_code": code, "eligible": False, "needs_change": None, "technical_safe": False, "safe_to_apply": False, "status": "needs_review", "reason_codes": ["table_cell"], "alasan": "Paragraf sel tabel dilindungi."} for code in body_codes]})

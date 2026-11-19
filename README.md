@@ -17,7 +17,28 @@ py -3 -m venv .venv
 ```
 
 Buka alamat lokal yang ditampilkan Streamlit. Untuk berhenti, tekan Ctrl+C di terminal.
-Instalasi dependensi membutuhkan akses ke sumber paket; aplikasi sendiri tidak memakai API atau database.
+Instalasi dependensi membutuhkan akses ke sumber paket. Audit dan formatter lama tetap lokal;
+pratinjau AI opsional mengirim potongan teks ke OpenAI hanya setelah persetujuan eksplisit.
+Aplikasi tidak menggunakan database.
+
+## Pratinjau AI opsional
+
+Atur `OPENAI_API_KEY` di environment lokal dan isi nama model yang tersedia di akun API
+(atau atur `OPENAI_MODEL`). Unggah DOCX, pilih jenjang, baca pemberitahuan pengiriman,
+centang persetujuan dan klik **Perbaiki Otomatis dengan AI (pratinjau)**. Fitur ini
+memproses paling banyak 30 kandidat per permintaan, dengan batas karakter per kutipan
+dan batas token output yang dapat dipilih. Permintaan dapat dikenai biaya; batas token
+output bukan batas biaya total. Tidak ada perubahan DOCX dari pratinjau AI.
+Rincian dan keterbatasan ada di [laporan integrasi AI](docs/AI_FIRST_INTEGRATION_REPORT.md).
+
+## Pilot formatting terkontrol
+
+Unggah DOCX dan pilih jenjang, lalu buka **Pilot formatting terkontrol (lokal)**.
+Aktifkan pilot, pilih paragraf yang telah diperiksa satu per satu, konfirmasi
+cakupannya, dan buat rencana. Tinjau alasan dan nilai awal sebelum menerapkan
+pilot pada salinan. Hasil hanya tersedia untuk diunduh setelah validasi integritas
+dan audit ulang; pratinjau AI tidak memberikan izin perubahan. Pemeriksaan visual
+Word dan acceptance dokumen nyata masih tertunda. Lihat [laporan pilot](docs/CONTROLLED_FORMATTING_PILOT_REPORT.md).
 
 Audit read-only mendukung sembilan validator layout: `PPKI-LAY-003`, `005`, `008`, `009`,
 `010`, `011`, `017`, `018`, dan `019`. Untuk properti teks isi, pilih style yang ditemukan dalam dokumen, periksa

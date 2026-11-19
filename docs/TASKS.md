@@ -164,6 +164,12 @@ terikat hash dokumen. Prediksi ambigu dan jawaban belum yakin tetap terpisah;
 hasil review tidak mengaktifkan formatter. Pelabelan dan pengukuran akurasi
 masih menunggu operator. Lihat [laporan v1.2A.2](V1_2A2_OPERATOR_VALIDATION.md).
 
+## AI-first tahap awal — analisis dan rencana [pratinjau]
+
+Integrasi Responses API opsional tersedia setelah persetujuan eksplisit dan
+validasi lokal. Belum mengaktifkan formatter dari hasil AI; evaluasi API nyata
+dan acceptance tetap PENDING. Lihat [laporan AI](AI_FIRST_INTEGRATION_REPORT.md).
+
 ## Definisi Done setiap task
 - [ ] Perubahan kode sesuai lingkup task dan tidak mengubah aturan sumber.
 - [ ] Tes yang relevan ada dan dijalankan; hasil dilaporkan.

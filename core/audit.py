@@ -207,8 +207,8 @@ def font_findings(document, rule, body_style=None, confirmed=False):
     return results
 
 
-def paragraph_value(paragraph, attribute):
-    """Resolve explicit paragraph and paragraph-style properties, not document defaults."""
+def paragraph_value(paragraph, attribute, include_defaults=False):
+    """Resolve explicit properties; document defaults are opt-in for AI dry-run."""
     value = getattr(paragraph.paragraph_format, attribute)
     if value is not None:
         return value
@@ -220,10 +220,32 @@ def paragraph_value(paragraph, attribute):
         if value is not None:
             return value
         style = style.base_style
+    if include_defaults:
+        from copy import deepcopy
+        from docx.oxml import OxmlElement
+        from docx.text.paragraph import Paragraph
+        defaults = paragraph.part.document.styles.element.find(qn("w:docDefaults"))
+        parent = defaults.find(qn("w:pPrDefault")) if defaults is not None else None
+        ppr = parent.find(qn("w:pPr")) if parent is not None else None
+        if ppr is not None:
+            # A line rule without its line value is not sufficient evidence.
+            spacing = ppr.find(qn("w:spacing"))
+            if attribute == "line_spacing" and spacing is not None and spacing.get(qn("w:lineRule")) is not None and spacing.get(qn("w:line")) is None:
+                return None
+            if attribute == "first_line_indent":
+                indent = ppr.find(qn("w:ind"))
+                if indent is not None and any(indent.get(qn("w:" + key)) is not None for key in ("firstLineChars", "hangingChars")):
+                    return None
+            holder = OxmlElement("w:p")
+            holder.append(deepcopy(ppr))
+            try:
+                return getattr(Paragraph(holder, paragraph._parent).paragraph_format, attribute)
+            except (ValueError, TypeError, AttributeError, OverflowError):
+                return None
     return None
 
 
-def paragraph_findings(document, rule, attribute, body_style, confirmed):
+def paragraph_findings(document, rule, attribute, body_style, confirmed, include_defaults=False):
     results = []
     if not body_style or not confirmed:
         return [finding(rule, "needs_review", "dokumen", "Tidak diperiksa", "Pilih dan konfirmasi cakupan teks isi terlebih dahulu.")]
@@ -253,7 +275,7 @@ def paragraph_findings(document, rule, attribute, body_style, confirmed):
         if not simple or uncertain:
             results.append(finding(rule, "needs_review", location, "Tidak dapat diverifikasi", "Struktur kompleks atau daftar perlu review manual."))
             continue
-        value = paragraph_value(paragraph, attribute)
+        value = paragraph_value(paragraph, attribute, include_defaults=include_defaults)
         if value is None:
             results.append(finding(rule, "needs_review", location, "Tidak diketahui", "Properti eksplisit tidak ditemukan; default dokumen perlu review."))
             continue

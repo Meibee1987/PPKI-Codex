@@ -11,8 +11,10 @@ from io import StringIO
 from core.rules import filter_rules, load_rules
 from core.audit import audit_docx, summarize, font_candidates, heading_candidates, page_number_structure, illustration_structure, citation_diagnostics, document_structure, validate_docx_input
 from core.formatter import format_docx, plan_changes, skipped_changes
-from core.structure import recognize_structure, safe_format_scope
+from core.structure import document_structure_map, recognize_structure, safe_format_scope
 import core.operator_review as operator_review
+import core.ai_planner as ai_planner
+import core.pilot as pilot
 
 
 st.set_page_config(page_title="PPKI Academic Formatter")
@@ -34,6 +36,9 @@ input_key = (document_key, degree)
 if st.session_state.get("input_key") != input_key:
     st.session_state.pop("audit_t4a", None)
     st.session_state.pop("output_t4a", None)
+    st.session_state.pop("ai_preview", None)
+    st.session_state.pop("pilot_result", None)
+    st.session_state.pop("pilot_plan", None)
     st.session_state["input_key"] = input_key
 
 try:
@@ -111,6 +116,57 @@ with st.form("audit_form", clear_on_submit=True):
                     caption_confirmed.add(caption["lokasi"])
     submitted = st.form_submit_button("Audit")
 
+st.subheader("Perbaikan Otomatis dengan AI — pratinjau")
+st.caption("Tahap ini hanya menganalisis dan tidak menerapkan perubahan. Maksimal 30 kandidat, masing-masing 180 karakter, dikirim dalam satu permintaan; kandidat lain belum dianalisis.")
+st.warning("Jika disetujui, potongan teks dan informasi struktur dokumen akan dikirim ke OpenAI API dan dapat menimbulkan biaya. Jangan kirim data yang tidak ingin Anda bagikan.")
+ai_model = st.text_input("Model OpenAI yang tersedia pada akun API", value=os.environ.get("OPENAI_MODEL", ""))
+ai_tokens = st.number_input("Batas token output per permintaan", min_value=256, max_value=4096, value=1024, step=256)
+ai_consent = st.checkbox("Saya menyetujui pengiriman potongan dokumen ke OpenAI untuk pratinjau ini.", key=f"ai_consent_{document_key}_{degree}")
+ai_signature = (input_key, ai_model, ai_tokens)
+if st.session_state.get("ai_signature") != ai_signature or not ai_consent:
+    st.session_state.pop("ai_preview", None)
+    st.session_state.ai_signature = ai_signature
+
+def show_ai_usage(usage):
+    if usage is None:
+        st.caption("Penggunaan token tidak tersedia dari respons API.")
+    else:
+        def display(key):
+            return usage[key] if usage[key] is not None else "tidak tersedia"
+        st.caption(f"Token input: {display('input_tokens')} | output: {display('output_tokens')} | total: {display('total_tokens')}")
+
+if st.button("Perbaiki Otomatis dengan AI (pratinjau)"):
+    st.session_state.pop("ai_preview", None)
+    if not ai_consent:
+        st.warning("Persetujuan pengiriman diperlukan sebelum memanggil API.")
+    elif not valid_upload or 'rules' not in locals():
+        st.error("Pilih DOCX yang valid dan pastikan aturan tersedia.")
+    else:
+        try:
+            prepared = ai_planner.prepare_analysis(uploaded.getvalue(), rules, degree, max_upload_mb * 1024 * 1024)
+            result = ai_planner.request_analysis(prepared, ai_model, ai_tokens)
+        except ai_planner.AnalysisError as exc:
+            st.error(str(exc))
+            show_ai_usage(exc.usage)
+        except ValueError as exc:
+            st.error(str(exc))
+        except Exception:
+            st.error("Pratinjau AI gagal diproses; tidak ada rencana yang digunakan.")
+        else:
+            st.session_state.ai_preview = {"signature": ai_signature, "plan": result["plan"], "usage": result["usage"], "selected": prepared["selected_count"], "remaining": prepared["unprocessed_count"], "old": prepared["old_safe_count"], "protected": prepared["protected_count"], "omitted": prepared["omitted"]}
+preview = st.session_state.get("ai_preview")
+if preview and preview["signature"] == ai_signature:
+    show_ai_usage(preview["usage"])
+    st.write(f"Kandidat dikirim: {preview['selected']} | Belum dikirim: {preview['remaining']} | Paragraf dengan perubahan potensial menurut classifier lokal: {preview['old']}")
+    st.write(f"Elemen dilindungi dan tidak dikirim: {preview['protected']}")
+    st.write(f"Paragraf dengan usulan AI lolos pemeriksaan lokal: {len({row['lokasi'] for row in preview['plan'] if row['status'] == 'kandidat_pratinjau'})} | Usulan perlu review: {sum(row['status'] == 'needs_review' for row in preview['plan'])}")
+    st.write(f"Keputusan usulan: diterima sebagai pratinjau {sum(row['status'] == 'kandidat_pratinjau' for row in preview['plan'])} | sudah sesuai {sum(row['status'] == 'sudah_sesuai' for row in preview['plan'])} | perlu review {sum(row['status'] == 'needs_review' for row in preview['plan'])}")
+    st.caption("Cakupan AI dibatasi pada kandidat yang dikirim; jumlah classifier lokal mencakup seluruh dokumen. Tidak ada perubahan DOCX yang diterapkan.")
+    st.dataframe(preview["plan"], hide_index=True)
+    if preview["omitted"]:
+        with st.expander("Kandidat belum dianalisis AI"):
+            st.dataframe(preview["omitted"], hide_index=True)
+
 summary_area = st.container()
 
 
@@ -182,11 +238,21 @@ if submitted:
             st.caption("Pengenalan read-only; tidak mengubah cakupan audit atau perbaikan dan bukan bukti kepatuhan PPKI.")
             with st.expander("Hasil pengenalan struktur dan contoh perlu review"):
                 st.dataframe(recognized, hide_index=True)
+            with st.expander("Peta kandidat BAB dan section"):
+                mapped = document_structure_map(uploaded.getvalue())
+                st.caption("Batas kandidat bersifat diagnostik; hubungan caption dan objek tetap perlu review. Tidak mengaktifkan formatter.")
+                st.write("Rentang BAB")
+                st.dataframe(mapped["chapters"], hide_index=True)
+                st.write("Section")
+                st.dataframe(mapped["sections"], hide_index=True)
+                st.write("Elemen dan kandidat hubungan objek")
+                st.dataframe(mapped["elements"], hide_index=True)
+                st.dataframe(mapped["caption_relations"], hide_index=True)
             scope = safe_format_scope(uploaded.getvalue(), rules, degree)
             scope_counts = Counter(item["keputusan"] for item in scope)
             st.write(f"Pratinjau cakupan eksperimental: auto_safe {scope_counts['auto_safe']} | needs_review {scope_counts['needs_review']} | protected {scope_counts['protected']} | Paragraf dengan usulan perubahan {sum(bool(item['aturan_berubah']) for item in scope)}")
             st.write(f"Paragraf eligible: {sum(any(c['eligible'] for c in item['rule_decisions']) for item in scope)} | Paragraf needs_change: {sum(any(c['needs_change'] is True for c in item['rule_decisions']) for item in scope)} | Paragraf safe_to_apply: {sum(any(c['safe_to_apply'] for c in item['rule_decisions']) for item in scope)}")
-            st.caption("Dry-run eksperimental: eligible berarti layak diperiksa; needs_change berarti nilainya tidak sesuai; safe_to_apply menilai perubahan teknis per aturan, bukan izin menjalankan formatter. Nilai yang sudah sesuai tetap dapat dinilai aman. Kandidat Normal atau konteks ambigu tetap membutuhkan konfirmasi; bantuan AI belum tersedia.")
+            st.caption("Dry-run eksperimental: eligible berarti layak diperiksa; needs_change berarti nilainya tidak sesuai; safe_to_apply menilai perubahan teknis per aturan, bukan izin menjalankan formatter. Nilai yang sudah sesuai tetap dapat dinilai aman. Pratinjau AI diperiksa secara terpisah dan tidak mengubah hasil cakupan ini.")
             with st.expander("Detail pratinjau cakupan"):
                 st.dataframe([{key: value for key, value in row.items() if key != 'rule_decisions'} for row in scope], hide_index=True)
                 st.write("Keputusan per paragraf dan aturan (None berarti belum diketahui):")
@@ -301,3 +367,45 @@ if os.environ.get("PPKI_LOCAL_REVIEW") == "1" and 'rules' in locals():
                 except Exception:
                     logging.error("Review privat gagal; periksa file lokal dan konfigurasi.")
                     st.error("Review privat tidak dapat dibuka atau disimpan. Periksa file lokal.")
+
+if valid_upload and 'rules' in locals():
+    with st.expander("Pilot formatting terkontrol (lokal)"):
+        st.caption("Pilih dan periksa setiap paragraf secara manual. Pilot tidak menggunakan keputusan AI; hanya salinan yang lolos validasi dapat diunduh.")
+        if st.checkbox("Aktifkan pilot lokal", key=f"pilot_enabled_{document_key}_{degree}"):
+            candidate_rows = [r for r in recognize_structure(uploaded.getvalue()) if r["jenis"] == "teks_isi" and r["lokasi"].startswith("paragraf:")]
+            candidate_text = {int(r["lokasi"].split(":")[1]): r["teks"] for r in candidate_rows}
+            chosen = st.multiselect("Paragraf teks isi yang telah diperiksa satu per satu", list(candidate_text), format_func=lambda i: f"Paragraf {i}: {candidate_text[i][:120]}", key=f"pilot_paragraphs_{document_key}_{degree}")
+            choice_key = sha256(",".join(map(str, sorted(chosen))).encode()).hexdigest()
+            pilot_confirmed = st.checkbox("Saya memastikan paragraf terpilih adalah teks isi utama dan aman untuk diperiksa.", key=f"pilot_confirm_{document_key}_{degree}_{choice_key}")
+            pilot_signature = (document_key, degree, tuple(sorted(chosen)), pilot_confirmed)
+            if st.session_state.get("pilot_signature") != pilot_signature:
+                st.session_state.pop("pilot_plan", None)
+                st.session_state.pop("pilot_result", None)
+                st.session_state.pilot_signature = pilot_signature
+            if st.button("Buat rencana pilot"):
+                st.session_state.pop("pilot_result", None)
+                if not chosen or not pilot_confirmed:
+                    st.warning("Pilih dan konfirmasi paragraf terlebih dahulu.")
+                else:
+                    try:
+                        st.session_state.pilot_plan = pilot.pilot_plan(uploaded.getvalue(), rules, degree, set(chosen))
+                    except Exception:
+                        st.session_state.pop("pilot_plan", None)
+                        st.error("Rencana pilot gagal divalidasi; tidak ada file yang dihasilkan.")
+            pilot_rows = st.session_state.get("pilot_plan")
+            if pilot_rows is not None:
+                summary = pilot.pilot_summary(pilot_rows)
+                st.write(f"Sudah sesuai: {summary['known_compliant']} | Rencana perubahan: {summary['planned']} | Nilai awal tidak diketahui: {summary['unknown_value']} | Rencana normalisasi nilai tidak diketahui: {summary['unknown_to_normalize']} | Dilewati: {summary['rejected']}")
+                st.caption("Ringkasan menghitung pasangan kandidat–aturan, termasuk kandidat yang belum dikonfirmasi; nilai format terukur bukan bukti kepatuhan konteks. Kategori dapat saling tumpang tindih.")
+                st.dataframe(pilot_rows, hide_index=True)
+                if summary["planned"] and st.button("Terapkan pilot pada salinan"):
+                    st.session_state.pop("pilot_result", None)
+                    try:
+                        result, checked_plan = pilot.format_pilot(uploaded.getvalue(), rules, degree, set(chosen))
+                        st.session_state.pilot_result = result
+                        st.session_state.pilot_plan = checked_plan
+                    except Exception:
+                        st.error("Validasi pilot gagal; file hasil tidak tersedia.")
+                if st.session_state.get("pilot_result") is not None:
+                    st.success(f"Validasi berhasil; {summary['planned']} perubahan diterapkan pada salinan.")
+                    st.download_button("Unduh DOCX pilot tervalidasi", st.session_state.pilot_result, file_name=Path(uploaded.name).stem + "_pilot_formatted.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
