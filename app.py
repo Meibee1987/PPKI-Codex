@@ -2,6 +2,7 @@ import streamlit as st
 from collections import Counter
 from hashlib import sha256
 import json
+import importlib
 from pathlib import Path
 import csv
 import logging
@@ -15,6 +16,11 @@ from core.structure import document_structure_map, recognize_structure, safe_for
 import core.operator_review as operator_review
 import core.ai_planner as ai_planner
 import core.pilot as pilot
+import core.ai_beta as ai_beta
+
+# Streamlit reruns app.py while imported modules may remain cached after an update.
+if getattr(ai_beta, "BETA_RESULT_CONTRACT_VERSION", None) != 2:
+    ai_beta = importlib.reload(ai_beta)
 
 
 st.set_page_config(page_title="PPKI Academic Formatter")
@@ -39,6 +45,11 @@ if st.session_state.get("input_key") != input_key:
     st.session_state.pop("ai_preview", None)
     st.session_state.pop("pilot_result", None)
     st.session_state.pop("pilot_plan", None)
+    st.session_state.pop("beta_result", None)
+    st.session_state.pop("beta_failure", None)
+    st.session_state.pop("evaluation_sample", None)
+    st.session_state.pop("evaluation_result", None)
+    st.session_state.pop("evaluation_import", None)
     st.session_state["input_key"] = input_key
 
 try:
@@ -166,6 +177,178 @@ if preview and preview["signature"] == ai_signature:
     if preview["omitted"]:
         with st.expander("Kandidat belum dianalisis AI"):
             st.dataframe(preview["omitted"], hide_index=True)
+
+st.subheader("Perbaiki Otomatis dengan AI — Beta")
+st.warning("Beta mengirim teks kandidat dan konteks ke OpenAI, dapat dikenai biaya, dan klasifikasi dapat keliru. Periksa hasil di Word sebelum digunakan.")
+st.caption("Kandidat diproses bertahap hingga selesai atau batas anggaran perkiraan tercapai. Atur harga sesuai model dan mata uang yang Anda gunakan.")
+beta_batch_size = st.number_input("Jumlah kandidat per batch", min_value=1, max_value=30, value=30)
+beta_budget = st.number_input("Anggaran maksimum per dokumen", min_value=0.000001, value=1.0, format="%.6f")
+beta_price_in = st.number_input("Harga input per sejuta token", min_value=0.000001, value=1.0, format="%.6f")
+beta_price_out = st.number_input("Harga output per sejuta token", min_value=0.000001, value=1.0, format="%.6f")
+st.caption("Biaya bersifat perkiraan berdasarkan harga yang diisi dan token yang tersedia; tagihan aktual dapat berbeda. Harga bukan batas biaya yang dijamin penyedia.")
+beta_consent = st.checkbox("Saya menyetujui pengiriman teks ke OpenAI dan penerapan perubahan beta pada salinan dokumen.", key=f"beta_consent_{document_key}_{degree}")
+beta_signature = (input_key, ai_model, ai_tokens, beta_consent, beta_batch_size, beta_budget, beta_price_in, beta_price_out, ai_beta.BETA_RESULT_CONTRACT_VERSION)
+if st.session_state.get("beta_signature") != beta_signature:
+    if st.session_state.get("beta_result") is not None:
+        previous = st.session_state.beta_result
+        if not isinstance(previous, dict) or not isinstance(previous.get("operations"), list):
+            st.error("Hasil Beta sebelumnya tidak memiliki laporan operasi lengkap; DOCX tidak tersedia. Hasil lama dibatalkan.")
+        else:
+            st.warning("Hasil Beta sebelumnya dibatalkan karena parameter atau versi hasil berubah.")
+    st.session_state.pop("beta_result", None)
+    st.session_state.pop("beta_failure", None)
+    st.session_state.beta_signature = beta_signature
+if st.button("Perbaiki Otomatis dengan AI — Beta"):
+    st.session_state.pop("beta_result", None)
+    st.session_state.pop("beta_failure", None)
+    if not beta_consent:
+        st.warning("Persetujuan tingkat dokumen diperlukan.")
+    elif not valid_upload or 'rules' not in locals():
+        st.error("Pilih DOCX valid dan pastikan aturan tersedia.")
+    else:
+        try:
+            prepared_beta = ai_beta.prepare_beta(uploaded.getvalue(), rules, degree, max_upload_mb * 1024 * 1024, all_candidates=True)
+            progress_beta = st.empty()
+            def show_beta_progress(stage, batch, total, remaining, estimate, batch_cost):
+                if stage == "starting":
+                    progress_beta.info(f"Batch {batch} akan dikirim: perkiraan maksimal input {estimate} token; biaya perkiraan {batch_cost:.6f}.")
+                else:
+                    progress_beta.info(f"Batch {batch} selesai; {total - remaining}/{total} kandidat diproses, {remaining} belum diproses.")
+            batching = ai_beta.request_batches(prepared_beta, ai_model, ai_tokens, batch_size=beta_batch_size,
+                budget=beta_budget, input_price=beta_price_in, output_price=beta_price_out, progress=show_beta_progress)
+            beta_result = ai_beta.format_beta(uploaded.getvalue(), rules, degree, prepared_beta, batching["decisions"])
+            beta_result["batching"] = batching
+            ai_beta.validate_beta_result(beta_result)
+            st.session_state.beta_result = beta_result
+        except ai_beta.BetaValidationError as exc:
+            st.error(str(exc))
+            st.session_state.beta_failure = exc.operations
+        except ValueError as exc:
+            st.error(str(exc))
+        except Exception:
+            st.error("Pemrosesan beta gagal; hasil tidak tersedia.")
+beta_failure = st.session_state.get("beta_failure")
+if beta_failure and beta_consent:
+    st.warning("Seluruh hasil dibatalkan; tidak ada DOCX tervalidasi. Laporan berikut berisi operasi yang gagal divalidasi.")
+    failed_csv = StringIO(newline="")
+    failed_writer = csv.DictWriter(failed_csv, fieldnames=["lokasi", "rule_code", "sebelum", "sesudah", "target", "status", "alasan"])
+    failed_writer.writeheader(); failed_writer.writerows(beta_failure)
+    st.download_button("Unduh laporan kegagalan beta CSV", failed_csv.getvalue(), file_name=Path(uploaded.name).stem + "_beta_failed.csv", mime="text/csv")
+beta_result = st.session_state.get("beta_result")
+if beta_result is not None and beta_consent:
+    try:
+        ai_beta.validate_beta_result(beta_result)
+    except ValueError as exc:
+        st.session_state.pop("beta_result", None)
+        beta_result = None
+        st.error(str(exc))
+if beta_result and beta_consent:
+    st.success("Status akhir: tervalidasi — formatter, audit ulang, integritas DOCX dan laporan operasi lengkap.")
+    batching = beta_result["batching"]
+    st.write(f"Batch: {len(batching['batches'])} | Token input: {batching['input_tokens']} | Token output: {batching['output_tokens']} | Total token: {batching['input_tokens'] + batching['output_tokens']} | Biaya perkiraan: {batching['cost']:.6f}")
+    if not batching["usage_complete"]:
+        st.warning("Token aktual tidak lengkap; biaya aktual belum dapat dihitung dan batch berikutnya dihentikan.")
+    with st.expander("Rincian batch"):
+        st.dataframe(batching["batches"], hide_index=True)
+    counts = beta_result["counts"]
+    summary_beta = beta_result["summary"]
+    st.write(f"Kandidat terverifikasi: {counts.get('body_verified', 0)} | Dilindungi: {counts.get('protected', 0)} | Perlu review: {counts.get('uncertain', 0)} | Belum dianalisis: {counts.get('unprocessed', 0)}")
+    st.write(f"Perubahan divalidasi: {summary_beta['planned']} | Nilai sudah sesuai: {summary_beta['known_compliant']} | Keputusan dilewati: {summary_beta['rejected']}")
+    op_counts = Counter(row["status"] for row in beta_result["operations"])
+    st.caption(f"Operasi: applied {op_counts['applied']} | already_compliant {op_counts['already_compliant']} | protected {op_counts['protected']} | uncertain {op_counts['uncertain']} | failed 0. Kegagalan validasi membatalkan seluruh hasil.")
+    st.caption("Jumlah nilai sudah sesuai hanya untuk kandidat yang dipilih AI; bukan bukti kepatuhan seluruh dokumen.")
+    exceptions_beta = [x for x in beta_result["decisions"] if x["status"] != "body_verified"]
+    with st.expander("Pengecualian beta"):
+        st.dataframe(exceptions_beta, hide_index=True)
+        st.dataframe([r for r in beta_result["plan"] if r["unsafe_or_ambiguous"]], hide_index=True)
+    with st.expander("Laporan operasi setelah validasi"):
+        st.dataframe(beta_result["operations"], hide_index=True)
+    report_beta = StringIO(newline="")
+    writer_beta = csv.DictWriter(report_beta, fieldnames=["lokasi", "rule_code", "sebelum", "sesudah", "target", "status", "alasan"])
+    writer_beta.writeheader(); writer_beta.writerows(beta_result["operations"])
+    st.download_button("Unduh laporan operasi beta CSV", report_beta.getvalue(), file_name=Path(uploaded.name).stem + "_beta_operations.csv", mime="text/csv")
+    if summary_beta["planned"]:
+        st.download_button("Download DOCX hasil beta", beta_result["data"], file_name=Path(uploaded.name).stem + "_beta_formatted.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
+with st.expander("Uji Klasifikasi AI — Tanpa Mengubah DOCX"):
+    st.caption("Maksimal 20 sampel: kandidat lolos, tertahan, dan bagian khusus. Sampel ini hanya untuk evaluasi dan tidak memberi izin formatting. Jika API key pernah terekspos, rotasi key sebelum digunakan.")
+    if st.button("Siapkan sampel evaluasi"):
+        st.session_state.pop("evaluation_result", None)
+        st.session_state.pop("evaluation_import", None)
+        if not valid_upload or 'rules' not in locals():
+            st.error("Pilih DOCX valid dan pastikan aturan tersedia.")
+        else:
+            try:
+                st.session_state.evaluation_sample = ai_beta.evaluation_stratified(uploaded.getvalue(), rules, degree, max_upload_mb * 1024 * 1024)
+            except ValueError as exc:
+                st.error(str(exc))
+    eval_sample = st.session_state.get("evaluation_sample")
+    if eval_sample:
+        st.write("Pratinjau lokal sampel; potongan dan konteks akan dikirim bila disetujui:")
+        st.dataframe(eval_sample["request"]["paragraphs"], hide_index=True)
+        label_upload = st.file_uploader("Impor CSV label pembanding (opsional)", type=["csv"], key=f"eval_csv_{document_key}_{degree}")
+        if st.button("Impor label CSV"):
+            st.session_state.pop("evaluation_import", None)
+            try:
+                if label_upload is None:
+                    raise ValueError("Pilih CSV label terlebih dahulu.")
+                imported = ai_beta.import_evaluation_labels(label_upload.getvalue(), eval_sample)
+                for identifier, item in imported.items():
+                    st.session_state[f"eval_label_{document_key}_{degree}_{identifier}"] = item["label"]
+                st.session_state.evaluation_import = imported
+                st.success(f"{len(imported)} label diimpor untuk evaluasi; tidak memberi izin formatter.")
+                st.warning("ID, BAB, dan kelompok cocok; CSV tanpa hash dokumen tidak membuktikan asal label. Periksa file sumber.")
+            except ValueError as exc:
+                st.error(str(exc))
+        st.caption("Label pembanding opsional dapat diisi sebelum AI dijalankan; tersimpan hanya dalam sesi lokal.")
+        for row in eval_sample["request"]["paragraphs"]:
+            st.selectbox(f"Penilaian operator {row['id']}", ["PENDING", "teks_isi", "bagian_khusus", "tidak_pasti"], key=f"eval_label_{document_key}_{degree}_{row['id']}")
+        labels = {row["id"]: st.session_state.get(f"eval_label_{document_key}_{degree}_{row['id']}", "PENDING") for row in eval_sample["request"]["paragraphs"]}
+        imported = st.session_state.get("evaluation_import")
+        if imported:
+            counts = ai_beta.comparison_counts(labels, {key: value["prediction"] for key, value in imported.items()})
+            st.write(f"Prediksi dalam CSV (belum diverifikasi): TP {counts.get('tp', 0)} | FP {counts.get('fp', 0)} | FN {counts.get('fn', 0)} | belum pasti {counts.get('unresolved', 0)}.")
+        estimated_tokens, estimated_cost = ai_beta.evaluation_estimate(eval_sample, ai_tokens, beta_price_in, beta_price_out)
+        st.write(f"Perkiraan input: {estimated_tokens} token; batas output: {ai_tokens}; biaya perkiraan: {estimated_cost:.6f}.")
+        st.caption("Perkiraan bukan batas tagihan yang dijamin; harga harus sesuai model yang dipilih.")
+        eval_consent = st.checkbox("Saya menyetujui pengiriman sampel evaluasi ke OpenAI tanpa memformat DOCX.", key=f"eval_consent_{document_key}_{degree}")
+        eval_signature = (input_key, ai_model, ai_tokens, beta_price_in, beta_price_out, eval_consent)
+        if st.session_state.get("evaluation_signature") != eval_signature:
+            st.session_state.pop("evaluation_result", None)
+            st.session_state.evaluation_signature = eval_signature
+        if st.button("Kirim sampel evaluasi AI"):
+            st.session_state.pop("evaluation_result", None)
+            if not eval_consent:
+                st.warning("Persetujuan pengiriman sampel diperlukan.")
+            elif not eval_sample["selected"]:
+                st.warning("Tidak ada kandidat untuk dievaluasi.")
+            elif estimated_cost > beta_budget:
+                st.warning("Perkiraan biaya melebihi anggaran dokumen.")
+            else:
+                try:
+                    decisions, usage = ai_beta.request_classifications(eval_sample, ai_model, ai_tokens, include_reason=True)
+                    st.session_state.evaluation_result = {"decisions": decisions, "usage": usage}
+                except ai_planner.AnalysisError as exc:
+                    st.error(str(exc))
+                    show_ai_usage(exc.usage)
+                except ValueError as exc:
+                    st.error(str(exc))
+                except Exception:
+                    st.error("Evaluasi gagal; DOCX tidak diubah.")
+        eval_result = st.session_state.get("evaluation_result")
+        if eval_result and eval_consent:
+            show_ai_usage(eval_result["usage"])
+            usage = eval_result["usage"]
+            if usage and usage.get("input_tokens") is not None and usage.get("output_tokens") is not None:
+                cost = (usage["input_tokens"] * beta_price_in + usage["output_tokens"] * beta_price_out) / 1000000
+                st.caption(f"Perkiraan biaya aktual berdasarkan token tersedia: {cost:.6f}.")
+            st.dataframe(eval_result["decisions"], hide_index=True)
+            st.caption("Perbandingan memakai label operator pada sampel ini, bukan ground truth otomatis.")
+            for title, field in (("AI mentah", "ai_role"), ("Gabungan konservatif", "effective_role")):
+                counts = ai_beta.comparison_counts(labels, {e["lokasi"]: e.get(field, "") for e in eval_result["decisions"]})
+                tp, fp = counts.get("tp", 0), counts.get("fp", 0)
+                precision = f"{tp / (tp + fp):.1%}" if tp + fp else "belum tersedia"
+                st.write(f"{title}: TP {tp} | FP {fp} | FN {counts.get('fn', 0)} | belum terukur {counts.get('unresolved', 0)} | precision body {precision}.")
 
 summary_area = st.container()
 
