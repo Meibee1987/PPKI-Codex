@@ -1,4 +1,5 @@
 from io import BytesIO
+import re
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 
@@ -6,7 +7,7 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm, Pt
 
-from core.audit import audit_docx, PAGE_RULES, certain_font, is_chapter_candidate
+from core.audit import audit_docx, PAGE_RULES, certain_font, is_chapter_candidate, validate_docx_input
 from core.rules import filter_rules
 
 
@@ -103,6 +104,27 @@ def section_is_safe(section):
     return section_skip_reason(section) is None
 
 
+def margin_skip_reason(section):
+    """Margin-specific checks; gutter does not prevent unrelated text formatting."""
+    from docx.oxml.ns import qn
+    reason = section_skip_reason(section)
+    if reason:
+        return reason
+    if section.page_width is None or section.page_height is None:
+        return "Ukuran halaman section tidak diketahui; margin perlu review."
+    if section._sectPr.xpath('./w:pgBorders | ./w:textDirection | ./w:rtlGutter | ./w:sectPrChange'):
+        return "Section memiliki pengaturan halaman atau revisi khusus; margin perlu review."
+    reasons = []
+    if section.gutter is not None and section.gutter > 0:
+        reasons.append("Section memiliki gutter penjilidan")
+    mirror = section._document_part.settings.element.xpath('./w:mirrorMargins')
+    if mirror and (mirror[0].get(qn('w:val')) or 'true').lower() not in ('0', 'false', 'off'):
+        reasons.append("dokumen memakai mirror margins")
+    if section.start_type == 0:
+        reasons.append("section continuous dapat berbagi halaman")
+    return "; ".join(reasons) + "; margin perlu review." if reasons else None
+
+
 def skipped_changes(data, rules, degree, findings, plan, style, confirmed, heading_only=False):
     document = Document(BytesIO(data))
     applicable, _ = filter_rules(rules, degree)
@@ -128,7 +150,8 @@ def skipped_changes(data, rules, degree, findings, plan, style, confirmed, headi
         elif rule["fix_mode"] != "Auto":
             reason = f"fix_mode={rule['fix_mode']}; perbaikan Auto tidak diizinkan."
         elif code in PAGE_CODES and location.startswith("section:"):
-            reason = section_skip_reason(document.sections[int(location.split(":")[1]) - 1]) or "Section memerlukan review."
+            section = document.sections[int(location.split(":")[1]) - 1]
+            reason = (margin_skip_reason(section) if code != "PPKI-LAY-003" else section_skip_reason(section)) or "Section memerlukan review."
         elif code in HEADING_CODES:
             reason = "Judul BAB mengandung karakter non-ASCII, struktur run kompleks, atau bold yang belum pasti; perlu review."
         elif not style or not confirmed:
@@ -141,7 +164,7 @@ def skipped_changes(data, rules, degree, findings, plan, style, confirmed, headi
     return skipped
 
 
-def plan_changes(data, rules, degree, style, confirmed, heading_confirmed=None, heading_only=False):
+def plan_changes(data, rules, degree, style, confirmed, heading_confirmed=None, heading_only=False, allowed_codes=None):
     findings = audit_docx(data, rules, degree, style, confirmed, heading_confirmed)
     applicable, _ = filter_rules(rules, degree)
     allowed = {rule["rule_code"] for rule in applicable if rule["fix_mode"] == "Auto"}
@@ -149,7 +172,7 @@ def plan_changes(data, rules, degree, style, confirmed, heading_confirmed=None, 
     result = []
     for item in findings:
         code, location = item["rule_code"], item["location"]
-        if code not in allowed or item["status"] != "fail":
+        if code not in allowed or item["status"] != "fail" or (allowed_codes is not None and code not in allowed_codes):
             continue
         if code in HEADING_CODES and location.startswith("paragraf:") and int(location.split(":")[1]) in (heading_confirmed or set()):
             paragraph = document.paragraphs[int(location.split(":")[1]) - 1]
@@ -168,8 +191,10 @@ def plan_changes(data, rules, degree, style, confirmed, heading_confirmed=None, 
             paragraph = document.paragraphs[int(location.split(":")[1]) - 1]
             if paragraph.style.style_id == style and font_targets(paragraph, item["expected"]):
                 result.append(item)
-        elif code in PAGE_CODES and location.startswith("section:") and section_is_safe(document.sections[int(location.split(":")[1]) - 1]):
-            result.append(item)
+        elif code in PAGE_CODES and location.startswith("section:"):
+            section = document.sections[int(location.split(":")[1]) - 1]
+            if (margin_skip_reason(section) if code != "PPKI-LAY-003" else section_skip_reason(section)) is None:
+                result.append(item)
     return result
 
 
@@ -267,9 +292,9 @@ def _document_structure(xml, changes):
     return canonical(root)
 
 
-def format_docx(data, rules, degree, style, confirmed, heading_confirmed=None, heading_only=False):
+def format_docx(data, rules, degree, style, confirmed, heading_confirmed=None, heading_only=False, allowed_codes=None):
     """Return validated copy, re-audit and applied changes; never write input."""
-    changes = plan_changes(data, rules, degree, style, confirmed, heading_confirmed, heading_only)
+    changes = plan_changes(data, rules, degree, style, confirmed, heading_confirmed, heading_only, allowed_codes)
     if not changes:
         return data, audit_docx(data, rules, degree, style, confirmed, heading_confirmed), []
     document = Document(BytesIO(data))
@@ -278,13 +303,16 @@ def format_docx(data, rules, degree, style, confirmed, heading_confirmed=None, h
         if item["location"].startswith("section:"):
             index = int(item["location"].split(":", 1)[1])
             section = document.sections[index - 1]
-            if not section_is_safe(section):
+            if (margin_skip_reason(section) if item["rule_code"] != "PPKI-LAY-003" else section_skip_reason(section)) is not None:
                 raise ValueError("Section tidak aman; audit ulang diperlukan.")
             attr, value = PAGE_CODES[item["rule_code"]]
             if attr is None:
                 section.page_width, section.page_height = Cm(value[0]), Cm(value[1])
             else:
-                setattr(section, attr, Cm(value))
+                match = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*cm\s*", item["expected"], flags=re.IGNORECASE)
+                if match is None:
+                    raise ValueError("Target margin aturan tidak dapat dibaca; hasil dibatalkan.")
+                setattr(section, attr, Cm(float(match.group(1))))
             changed.setdefault(f"section:{index}", set()).add(item["rule_code"])
             continue
         index = int(item["location"].split(":", 1)[1])
@@ -355,3 +383,40 @@ def format_docx(data, rules, degree, style, confirmed, heading_confirmed=None, h
     except (ET.ParseError, KeyError, IndexError) as exc:
         raise ValueError("Validasi integritas DOCX gagal.") from exc
     return result, after, changes
+
+
+def format_margins(data, rules, degree):
+    """Apply only independently verified page margins, preserving every other DOCX part."""
+    validate_docx_input(data, "input.docx")
+    codes = {"PPKI-LAY-008", "PPKI-LAY-009", "PPKI-LAY-010", "PPKI-LAY-011"}
+    before = audit_docx(data, rules, degree)
+    document = Document(BytesIO(data))
+    result, after, changes = format_docx(data, rules, degree, None, False, allowed_codes=codes)
+    validate_docx_input(result, "hasil.docx")
+    after_map = {(r["rule_code"], r["location"]): r for r in after}
+    changed = {(r["rule_code"], r["location"]) for r in changes}
+    _, review = filter_rules(rules, degree)
+    report = []
+    for row in before:
+        code, location = row["rule_code"], row["location"]
+        if code not in codes or not location.startswith("section:"):
+            continue
+        skip = margin_skip_reason(document.sections[int(location.split(":")[1]) - 1])
+        key = (code, location)
+        if key in changed:
+            status, reason = "applied", "Audit ulang dan validasi integritas lulus."
+        elif skip:
+            status, reason = "uncertain", skip
+        elif row["status"] == "pass":
+            status, reason = "already_compliant", "Margin sudah sesuai."
+        else:
+            status, reason = "uncertain", "Aturan, konteks atau properti belum aman diperbaiki."
+        report.append({"lokasi": location, "rule_code": code, "properti": PAGE_CODES[code][0],
+                       "sebelum": row["actual"], "sesudah": after_map.get(key, row)["actual"],
+                       "target": row["expected"], "status": status, "alasan": reason})
+    for rule in review:
+        if rule["rule_code"] in codes:
+            report.append({"lokasi": "dokumen", "rule_code": rule["rule_code"], "properti": "margin",
+                           "sebelum": "Tidak diperiksa", "sesudah": "Tidak diperiksa", "target": rule["expected_value_pattern"],
+                           "status": "uncertain", "alasan": "Konteks applies_to belum pasti."})
+    return result, report

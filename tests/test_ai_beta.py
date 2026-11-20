@@ -126,7 +126,7 @@ def test_streamlit_beta_consent_and_download():
     data = sample(); upload = SimpleNamespace(name="dummy.docx", getvalue=lambda: data)
     def mocked(prepared, model, tokens, client=None):
         return request_classifications(prepared, "mock", 1024, MockClient(prepared))
-    with patch("streamlit.file_uploader", return_value=upload), patch("core.ai_beta.request_classifications", side_effect=mocked):
+    with patch("streamlit.file_uploader", return_value=upload), patch("core.ai_beta.request_classifications", side_effect=mocked) as ai:
         app = AppTest.from_file(Path(__file__).resolve().parent.parent / "app.py", default_timeout=30).run()
         next(b for b in app.button if b.label.endswith("Beta")).click().run()
         assert not app.exception and not app.get("download_button")
@@ -134,6 +134,9 @@ def test_streamlit_beta_consent_and_download():
         next(b for b in app.button if b.label.endswith("Beta")).click().run()
         assert not app.exception and len(app.get("download_button")) == 2, ([x.value for x in app.error], [x.value for x in app.warning])
         assert app.session_state["beta_result"]["data"] != data and upload.getvalue() == data
+        calls = ai.call_count
+        next(b for b in app.button if b.label == "Perbaiki margin deterministik").click().run()
+        assert not app.exception and ai.call_count == calls and app.session_state.get("margin_result") is not None
         with patch("core.pilot._document_structure", side_effect=lambda xml, changes: xml):
             next(b for b in app.button if b.label.endswith("Beta")).click().run()
             assert not app.exception and app.error

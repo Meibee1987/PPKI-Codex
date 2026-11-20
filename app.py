@@ -7,11 +7,12 @@ from pathlib import Path
 import csv
 import logging
 import os
-from io import StringIO
+from io import StringIO, BytesIO
+from docx import Document
 
 from core.rules import filter_rules, load_rules
 from core.audit import audit_docx, summarize, font_candidates, heading_candidates, page_number_structure, illustration_structure, citation_diagnostics, document_structure, validate_docx_input
-from core.formatter import format_docx, plan_changes, skipped_changes
+from core.formatter import format_docx, plan_changes, skipped_changes, format_margins, font_targets
 from core.structure import document_structure_map, recognize_structure, safe_format_scope
 import core.operator_review as operator_review
 import core.ai_planner as ai_planner
@@ -47,6 +48,7 @@ if st.session_state.get("input_key") != input_key:
     st.session_state.pop("pilot_plan", None)
     st.session_state.pop("beta_result", None)
     st.session_state.pop("beta_failure", None)
+    st.session_state.pop("margin_result", None)
     st.session_state.pop("evaluation_sample", None)
     st.session_state.pop("evaluation_result", None)
     st.session_state.pop("evaluation_import", None)
@@ -197,10 +199,12 @@ if st.session_state.get("beta_signature") != beta_signature:
             st.warning("Hasil Beta sebelumnya dibatalkan karena parameter atau versi hasil berubah.")
     st.session_state.pop("beta_result", None)
     st.session_state.pop("beta_failure", None)
+    st.session_state.pop("margin_result", None)
     st.session_state.beta_signature = beta_signature
 if st.button("Perbaiki Otomatis dengan AI — Beta"):
     st.session_state.pop("beta_result", None)
     st.session_state.pop("beta_failure", None)
+    st.session_state.pop("margin_result", None)
     if not beta_consent:
         st.warning("Persetujuan tingkat dokumen diperlukan.")
     elif not valid_upload or 'rules' not in locals():
@@ -240,6 +244,7 @@ if beta_result is not None and beta_consent:
         ai_beta.validate_beta_result(beta_result)
     except ValueError as exc:
         st.session_state.pop("beta_result", None)
+        st.session_state.pop("margin_result", None)
         beta_result = None
         st.error(str(exc))
 if beta_result and beta_consent:
@@ -269,6 +274,48 @@ if beta_result and beta_consent:
     st.download_button("Unduh laporan operasi beta CSV", report_beta.getvalue(), file_name=Path(uploaded.name).stem + "_beta_operations.csv", mime="text/csv")
     if summary_beta["planned"]:
         st.download_button("Download DOCX hasil beta", beta_result["data"], file_name=Path(uploaded.name).stem + "_beta_formatted.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
+st.subheader("Perbaikan margin tanpa AI")
+st.caption("Memakai salinan Beta yang tervalidasi bila tersedia, atau dokumen unggahan. Font hanya diterapkan pada cakupan Beta yang sudah diverifikasi; tidak ada permintaan AI baru.")
+if st.button("Perbaiki margin deterministik"):
+    st.session_state.pop("margin_result", None)
+    if not valid_upload or 'rules' not in locals():
+        st.error("Pilih DOCX valid dan pastikan aturan tersedia.")
+    else:
+        try:
+            source = beta_result["data"] if beta_result else uploaded.getvalue()
+            margin_doc, margin_rows = format_margins(source, rules, degree)
+            previous_operations = beta_result["operations"] if beta_result else []
+            font_rows = [r for r in previous_operations if r["rule_code"] == "PPKI-LAY-005" and r["status"] == "applied"]
+            source_doc = Document(BytesIO(uploaded.getvalue()))
+            targets_by_paragraph = [font_targets(source_doc.paragraphs[int(r["lokasi"].split(":")[1]) - 1], r["target"]) for r in font_rows]
+            font_runs = sum(len(targets) for targets in targets_by_paragraph) if all(targets is not None for targets in targets_by_paragraph) else None
+            st.session_state.margin_result = {"data": margin_doc, "rows": margin_rows, "previous": previous_operations, "font_runs": font_runs,
+                                               "unknown_normalized": beta_result["summary"]["unknown_to_normalize"] if beta_result else 0,
+                                               "changed": margin_doc != uploaded.getvalue()}
+        except ValueError as exc:
+            st.error(str(exc))
+        except Exception:
+            st.error("Validasi margin gagal; DOCX hasil tidak tersedia.")
+margin_result = st.session_state.get("margin_result")
+if margin_result:
+    margin_rows = margin_result["rows"]
+    applied_sections = {row["lokasi"] for row in margin_rows if row["status"] == "applied"}
+    previous = margin_result["previous"]
+    paragraphs = {r["lokasi"] for r in previous if r["status"] == "applied"}
+    rejected = sum(r['status'] in {'uncertain', 'protected'} for r in margin_rows + previous)
+    st.write(f"Section diperbaiki: {len(applied_sections)} | Paragraf diperbaiki: {len(paragraphs)} | Run font diperbaiki: {margin_result['font_runs'] if margin_result['font_runs'] is not None else 'tidak dapat dipastikan'} | Normalisasi nilai tidak diketahui: {margin_result['unknown_normalized']} | Operasi dilewati: {rejected}.")
+    st.write(f"Operasi diterapkan: {sum(r['status'] == 'applied' for r in margin_rows + previous)} | Sudah sesuai: {sum(r['status'] == 'already_compliant' for r in margin_rows + previous)} | Gagal: 0 (hasil telah divalidasi).")
+    st.caption("Normalisasi font dari nilai tidak diketahui: 0; font yang tidak pasti tetap perlu review.")
+    st.dataframe(margin_rows, hide_index=True)
+    margin_csv = StringIO(newline="")
+    margin_writer = csv.DictWriter(margin_csv, fieldnames=["lokasi", "rule_code", "properti", "sebelum", "sesudah", "target", "status", "alasan"])
+    margin_writer.writeheader(); margin_writer.writerows(margin_rows)
+    for row in previous:
+        margin_writer.writerow({**row, "properti": "font" if row["rule_code"] == "PPKI-LAY-005" else row["rule_code"]})
+    st.download_button("Unduh laporan margin CSV", margin_csv.getvalue(), file_name=Path(uploaded.name).stem + "_margin_report.csv", mime="text/csv")
+    if margin_result["changed"]:
+        st.download_button("Unduh DOCX margin tervalidasi", margin_result["data"], file_name=Path(uploaded.name).stem + "_margin_formatted.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
 with st.expander("Uji Klasifikasi AI — Tanpa Mengubah DOCX"):
     st.caption("Maksimal 20 sampel: kandidat lolos, tertahan, dan bagian khusus. Sampel ini hanya untuk evaluasi dan tidak memberi izin formatting. Jika API key pernah terekspos, rotasi key sebelum digunakan.")

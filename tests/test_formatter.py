@@ -9,8 +9,12 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
 import base64
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+from streamlit.testing.v1 import AppTest
 
-from core.formatter import format_docx, plan_changes
+from core.formatter import format_docx, plan_changes, format_margins
 from core.rules import load_rules
 
 
@@ -118,6 +122,70 @@ def test_page_format_all_rules_two_sections_preserve_contents_and_idempotence():
         assert all(a.read(name) == b.read(name) for name in a.namelist() if name != "word/document.xml")
     second, _, again = format_docx(output, rules, "S1", None, False)
     assert not again and second == output
+
+
+def test_margin_only_preserves_page_section_and_contents_and_is_idempotent():
+    data = page_sample(); output, report = format_margins(data, load_rules(), "S2")
+    applied = [r for r in report if r["status"] == "applied"]
+    assert len(applied) == 4 and all(r["lokasi"] == "section:1" for r in applied)
+    before, after = Document(BytesIO(data)), Document(BytesIO(output))
+    assert before.sections[0].page_width == after.sections[0].page_width
+    assert before.sections[1]._sectPr.xml == after.sections[1]._sectPr.xml
+    assert [p.text for p in before.paragraphs] == [p.text for p in after.paragraphs]
+    assert before.tables[0]._tbl.xml == after.tables[0]._tbl.xml
+    assert len(before.inline_shapes) == len(after.inline_shapes)
+    with ZipFile(BytesIO(data)) as a, ZipFile(BytesIO(output)) as b:
+        assert all(a.read(n) == b.read(n) for n in a.namelist() if n != "word/document.xml")
+    again, second = format_margins(output, load_rules(), "S2")
+    assert again == output and not [r for r in second if r["status"] == "applied"]
+
+
+@pytest.mark.parametrize("special", ["landscape", "gutter", "mirror", "continuous"])
+def test_special_section_margin_is_not_changed(special):
+    doc = Document(BytesIO(page_sample())); section = doc.sections[0]
+    if special == "landscape": section.orientation = WD_ORIENT.LANDSCAPE
+    elif special == "gutter": section.gutter = Cm(1)
+    elif special == "continuous": section.start_type = 0
+    else: doc.settings.element.append(OxmlElement("w:mirrorMargins"))
+    stream = BytesIO(); doc.save(stream)
+    result, report = format_margins(stream.getvalue(), load_rules(), "S2")
+    assert result == stream.getvalue()
+    assert all(r["status"] == "uncertain" for r in report if r["lokasi"] == "section:1")
+
+
+def test_streamlit_margin_only_never_calls_ai_and_rejects_failed_integrity():
+    data = page_sample(); upload = SimpleNamespace(name="dummy.docx", getvalue=lambda: data)
+    with patch("streamlit.file_uploader", return_value=upload), patch("core.ai_beta.request_classifications") as ai:
+        app = AppTest.from_file(Path(__file__).resolve().parent.parent / "app.py", default_timeout=30).run()
+        next(b for b in app.button if b.label == "Perbaiki margin deterministik").click().run()
+        assert not app.exception and not app.error and not ai.called
+        assert len(app.get("download_button")) == 2 and upload.getvalue() == data
+        rows = app.session_state["margin_result"]["rows"]
+        left = next(r for r in rows if r["lokasi"] == "section:1" and r["rule_code"] == "PPKI-LAY-008")
+        assert left["status"] == "applied" and left["sebelum"] != left["sesudah"] and left["target"] == "4 cm"
+        app.run()
+        assert not app.exception and len(app.get("download_button")) == 2 and not ai.called
+        with patch("core.formatter._document_structure", side_effect=lambda xml, changes: xml):
+            next(b for b in app.button if b.label == "Perbaiki margin deterministik").click().run()
+            assert app.error and not app.exception and not app.get("download_button") and not ai.called
+
+
+def test_two_sections_margins_preserve_linked_headers_and_page_fields():
+    doc = Document(BytesIO(page_sample()))
+    for section in doc.sections:
+        section.page_width, section.page_height = Cm(21), Cm(29.7)
+        section.left_margin, section.right_margin = Cm(3), Cm(3)
+        section.top_margin, section.bottom_margin = Cm(3), Cm(3)
+    field = OxmlElement("w:fldSimple"); field.set(qn("w:instr"), "PAGE")
+    doc.sections[0].footer.paragraphs[0]._p.append(field)
+    stream = BytesIO(); doc.save(stream); data = stream.getvalue()
+    result, report = format_margins(data, load_rules(), "S2")
+    assert {(r["lokasi"], r["rule_code"]) for r in report if r["status"] == "applied"} == {("section:1", "PPKI-LAY-008"), ("section:2", "PPKI-LAY-008")}
+    after = Document(BytesIO(result))
+    assert after.sections[1].header.is_linked_to_previous and after.sections[1].footer.is_linked_to_previous
+    assert after.sections[0].footer.paragraphs[0]._p.xpath('./w:fldSimple')
+    with ZipFile(BytesIO(data)) as a, ZipFile(BytesIO(result)) as b:
+        assert all(a.read(n) == b.read(n) for n in a.namelist() if n != "word/document.xml")
 
 
 def test_landscape_section_skipped_and_manual_rule_skipped():

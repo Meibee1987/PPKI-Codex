@@ -1,5 +1,12 @@
 # Progres Automatic Safe Formatting
 
+Beta v0.5: koreksi margin deterministik memakai formatter yang ada dan tidak
+memanggil AI. Tesis S2 memiliki gutter 1 cm dan mirror margins pada kedua
+section; keduanya ditahan untuk review. Tanpa cakupan Beta yang tersimpan,
+font tidak dinormalisasi secara otomatis. Render LibreOffice dan Word tahap
+ini PENDING. Regresi 254 passed; tes terfokus margin dan Beta juga lulus.
+Lihat `AI_BETA_V05_MARGIN_FONT_REPORT.md`.
+
 Perbaikan KeyError Beta: hasil kini memiliki kontrak terversi dan status
 validasi eksplisit; laporan operasi diverifikasi sebelum disimpan maupun
 ditampilkan. State lama/tidak lengkap dibatalkan tanpa panggilan API ulang;
