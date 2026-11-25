@@ -33,7 +33,9 @@ def sample():
     other = doc.add_paragraph("Paragraf sintetis lain yang tidak dikonfirmasi dan tidak boleh diubah oleh pilot ini.", style="Body Text")
     other.paragraph_format.line_spacing = 2.0
     complex_p = doc.add_paragraph("Paragraf sintetis dengan field Word.", style="Body Text")
-    complex_p._p.append(OxmlElement("w:fldSimple"))
+    field = OxmlElement("w:fldSimple")
+    field.set(qn("w:instr"), " PAGE ")
+    complex_p._p.append(field)
     doc.add_paragraph("Tabel 1 Caption sintetis", style="Caption")
     doc.add_table(rows=1, cols=1).cell(0, 0).text = "Isi tabel sintetis"
     doc.sections[0].header.paragraphs[0].text = "Header sintetis"
