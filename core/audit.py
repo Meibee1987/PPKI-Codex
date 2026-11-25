@@ -142,6 +142,18 @@ def certain_font(run, paragraph):
             seen.add(style.style_id)
             sources.append((style.font, style.element.rPr))
             style = style.base_style
+    # Document defaults are the last explicit source, below both style chains.
+    # Use a detached run so reading defaults cannot modify the input document.
+    from copy import deepcopy
+    from docx.oxml import OxmlElement
+    from docx.text.font import Font
+    defaults = paragraph.part.document.styles.element.find(qn("w:docDefaults"))
+    default_parent = defaults.find(qn("w:rPrDefault")) if defaults is not None else None
+    default_rpr = default_parent.find(qn("w:rPr")) if default_parent is not None else None
+    if default_rpr is not None:
+        holder = OxmlElement("w:r")
+        holder.append(deepcopy(default_rpr))
+        sources.append((Font(holder), holder.rPr))
     name = size = None
     name_blocked = False
     for font, properties in sources:
@@ -156,8 +168,13 @@ def certain_font(run, paragraph):
                         name = ascii_name
                     elif ascii_name or ansi_name:
                         name_blocked = True
-        if size is None and font.size is not None:
-            size = font.size.pt
+        if size is None:
+            try:
+                if font.size is not None:
+                    size = font.size.pt
+            except (ValueError, TypeError, OverflowError):
+                # Invalid explicit size must not fall back to a lower priority.
+                return name, None
     return name, size
 
 

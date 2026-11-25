@@ -15,6 +15,7 @@ from streamlit.testing.v1 import AppTest
 
 from core.pilot import format_pilot, pilot_plan, pilot_summary
 from core.rules import load_rules
+from core.audit import certain_font
 
 
 def sample():
@@ -38,6 +39,81 @@ def sample():
     doc.sections[0].header.paragraphs[0].text = "Header sintetis"
     output = BytesIO(); doc.save(output)
     return output.getvalue()
+
+
+def test_document_default_font_is_resolved_and_corrected_without_changing_defaults():
+    doc = Document(BytesIO(sample()))
+    run = doc.paragraphs[2].runs[0]
+    run.font.name = None
+    run.font.size = None
+    defaults = doc.styles.element.find(qn("w:docDefaults"))
+    rpr = defaults.find(qn("w:rPrDefault")).find(qn("w:rPr"))
+    fonts = rpr.find(qn("w:rFonts"))
+    if fonts is not None:
+        rpr.remove(fonts)
+    fonts = OxmlElement("w:rFonts")
+    fonts.set(qn("w:ascii"), "Arial")
+    fonts.set(qn("w:hAnsi"), "Arial")
+    rpr.insert(0, fonts)
+    size = rpr.find(qn("w:sz"))
+    if size is None:
+        size = OxmlElement("w:sz"); rpr.append(size)
+    size.set(qn("w:val"), "22")
+    assert certain_font(run, doc.paragraphs[2]) == ("Arial", 11)
+    stream = BytesIO(); doc.save(stream); original = stream.getvalue()
+    result, plan = format_pilot(original, load_rules(), "S1", {3})
+    font = next(r for r in plan if r["lokasi"] == "paragraf:3" and r["rule_code"] == "PPKI-LAY-005")
+    assert font["eligible_for_normalization"] and font["nilai_awal"] == "known_noncompliant"
+    after = Document(BytesIO(result))
+    assert certain_font(after.paragraphs[2].runs[0], after.paragraphs[2]) == ("Times New Roman", 12)
+    assert after.paragraphs[2].runs[0].bold and after.paragraphs[2].runs[0].italic
+    with ZipFile(BytesIO(original)) as first, ZipFile(BytesIO(result)) as second:
+        assert all(first.read(n) == second.read(n) for n in first.namelist() if n != "word/document.xml")
+    again, _ = format_pilot(result, load_rules(), "S1", {3})
+    assert again == result
+
+
+def test_document_default_theme_does_not_override_explicit_uncertainty():
+    doc = Document(BytesIO(sample()))
+    run = doc.paragraphs[2].runs[0]
+    run.font.name = None; run.font.size = None
+    assert certain_font(run, doc.paragraphs[2])[0] is None
+
+
+def test_direct_and_paragraph_style_take_precedence_over_document_defaults():
+    doc = Document(BytesIO(sample()))
+    paragraph = doc.paragraphs[2]
+    run = paragraph.runs[0]
+    paragraph.style.font.name = "Courier New"
+    paragraph.style.font.size = Pt(10)
+    assert certain_font(run, paragraph) == ("Arial", 11)
+    run.font.name = None; run.font.size = None
+    assert certain_font(run, paragraph) == ("Courier New", 10)
+
+
+def test_character_style_inheritance_precedes_paragraph_style():
+    from docx.enum.style import WD_STYLE_TYPE
+    doc = Document(BytesIO(sample()))
+    paragraph = doc.paragraphs[2]; run = paragraph.runs[0]
+    paragraph.style.font.name = "Arial"; paragraph.style.font.size = Pt(11)
+    base = doc.styles.add_style("Synthetic Character Base", WD_STYLE_TYPE.CHARACTER)
+    base.font.name = "Times New Roman"; base.font.size = Pt(12)
+    derived = doc.styles.add_style("Synthetic Character Derived", WD_STYLE_TYPE.CHARACTER)
+    derived.base_style = base
+    run.font.name = None; run.font.size = None; run.style = derived
+    assert certain_font(run, paragraph) == ("Times New Roman", 12)
+
+
+def test_incomplete_default_font_remains_unknown():
+    doc = Document(BytesIO(sample()))
+    paragraph = doc.paragraphs[2]; run = paragraph.runs[0]
+    run.font.name = None; run.font.size = None
+    defaults = doc.styles.element.find(qn("w:docDefaults"))
+    rpr = defaults.find(qn("w:rPrDefault")).find(qn("w:rPr"))
+    fonts = rpr.find(qn("w:rFonts"))
+    rpr.remove(fonts)
+    fonts = OxmlElement("w:rFonts"); fonts.set(qn("w:ascii"), "Arial"); rpr.insert(0, fonts)
+    assert certain_font(run, paragraph)[0] is None
 
 
 def test_pilot_changes_only_confirmed_paragraph_and_normalizes_unknown():

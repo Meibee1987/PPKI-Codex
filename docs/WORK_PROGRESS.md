@@ -1,5 +1,21 @@
 # Progres Automatic Safe Formatting
 
+T13 visual Word: **PARTIAL**. Dua pasangan fixture sintetis sudah disiapkan
+dan integritas strukturalnya diperiksa. Word COM gagal karena sesi logon
+`0x80070520`; Word GUI membuka dokumen AutoRecovered, tetapi fixture belum
+dapat dibandingkan secara visual. Halaman dan layout masih PENDING MANUAL
+REVIEW. Lihat `T13_WORD_VISUAL_ACCEPTANCE_REPORT.md`. Tidak ada perubahan kode
+atau pengujian; regresi otomatis terakhir tetap 259 passed dari v0.5.1.
+
+Beta v0.5.1: branch remote `main` sama dengan commit lokal awal `8e0f2de`;
+pekerjaan PC kantor tidak ditemukan sebagai branch remote yang terpisah.
+Font `docDefaults` eksplisit kini diperiksa setelah format langsung dan style;
+theme ambigu tetap review. Tesis S2: 2 section dengan gutter/mirror tetap
+review, 0 section atau run font diubah tanpa cakupan tervalidasi. Detail dan
+batasan tersedia di `AI_BETA_V051_EFFECTIVE_MARGIN_FONT_REPORT.md`.
+Baseline sebelum perubahan: **254 passed**. Regresi akhir: **259 passed**;
+50 tes terfokus formatter/pilot termasuk AppTest juga lulus.
+
 Beta v0.5: koreksi margin deterministik memakai formatter yang ada dan tidak
 memanggil AI. Tesis S2 memiliki gutter 1 cm dan mirror margins pada kedua
 section; keduanya ditahan untuk review. Tanpa cakupan Beta yang tersimpan,
