@@ -82,7 +82,7 @@ def test_streamlit_heading_candidates_and_confirmation():
         assert any("Kandidat judul BAB (Heading 1): 1" in x.value for x in app.markdown)
         app.checkbox[1].check(); app.button[0].click().run()
         assert not app.exception
-        findings = app.dataframe[1].value
+        findings = next(frame.value for frame in app.dataframe if {"rule_code", "status", "message"} <= set(frame.value.columns))
         assert findings[findings["rule_code"] == "PPKI-HDG-003"].iloc[0]["status"] == "pass"
 
 
@@ -126,7 +126,7 @@ def test_master_streamlit_checkboxes_are_independent_of_body_style():
         app.checkbox[1].check(); app.button[0].click().run()
         assert not app.exception
         assert app.session_state["audit_t4a"]["heading_confirmed"] == {40}
-        findings = app.dataframe[1].value
+        findings = next(frame.value for frame in app.dataframe if {"rule_code", "status", "message"} <= set(frame.value.columns))
         hdg = findings[findings["rule_code"] == "PPKI-HDG-003"]
         assert hdg[hdg["location"] == "paragraf:60"].iloc[0]["status"] == "needs_review"
         assert hdg[hdg["location"] == "paragraf:40"].iloc[0]["status"] != "needs_review"

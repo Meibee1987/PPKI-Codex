@@ -9,6 +9,7 @@ from docx.shared import Cm, Pt
 
 from core.audit import audit_docx, PAGE_RULES, certain_font, is_chapter_candidate, validate_docx_input
 from core.rules import filter_rules
+from core.preflight import image_preflight, reviewed_changes
 
 
 VALUES = {"PPKI-LAY-017": ("line_spacing", 1.0),
@@ -151,7 +152,7 @@ def skipped_changes(data, rules, degree, findings, plan, style, confirmed, headi
             reason = f"fix_mode={rule['fix_mode']}; perbaikan Auto tidak diizinkan."
         elif code in PAGE_CODES and location.startswith("section:"):
             section = document.sections[int(location.split(":")[1]) - 1]
-            reason = (margin_skip_reason(section) if code != "PPKI-LAY-003" else section_skip_reason(section)) or "Section memerlukan review."
+            reason = (margin_skip_reason(section) if code != "PPKI-LAY-003" else section_skip_reason(section)) or "PREFLIGHT gambar: perubahan horizontal section ditahan sampai risiko direview operator."
         elif code in HEADING_CODES:
             reason = "Judul BAB mengandung karakter non-ASCII, struktur run kompleks, atau bold yang belum pasti; perlu review."
         elif not style or not confirmed:
@@ -164,7 +165,7 @@ def skipped_changes(data, rules, degree, findings, plan, style, confirmed, headi
     return skipped
 
 
-def plan_changes(data, rules, degree, style, confirmed, heading_confirmed=None, heading_only=False, allowed_codes=None):
+def candidate_changes(data, rules, degree, style, confirmed, heading_confirmed=None, heading_only=False, allowed_codes=None):
     findings = audit_docx(data, rules, degree, style, confirmed, heading_confirmed)
     applicable, _ = filter_rules(rules, degree)
     allowed = {rule["rule_code"] for rule in applicable if rule["fix_mode"] == "Auto"}
@@ -196,6 +197,11 @@ def plan_changes(data, rules, degree, style, confirmed, heading_confirmed=None, 
             if (margin_skip_reason(section) if code != "PPKI-LAY-003" else section_skip_reason(section)) is None:
                 result.append(item)
     return result
+
+
+def plan_changes(data, rules, degree, style, confirmed, heading_confirmed=None, heading_only=False, allowed_codes=None, *, image_reviewed_sections=()):
+    candidates = candidate_changes(data, rules, degree, style, confirmed, heading_confirmed, heading_only, allowed_codes)
+    return reviewed_changes(candidates, image_preflight(data, candidates), image_reviewed_sections)
 
 
 def _document_structure(xml, changes):
@@ -292,9 +298,9 @@ def _document_structure(xml, changes):
     return canonical(root)
 
 
-def format_docx(data, rules, degree, style, confirmed, heading_confirmed=None, heading_only=False, allowed_codes=None):
+def format_docx(data, rules, degree, style, confirmed, heading_confirmed=None, heading_only=False, allowed_codes=None, *, image_reviewed_sections=()):
     """Return validated copy, re-audit and applied changes; never write input."""
-    changes = plan_changes(data, rules, degree, style, confirmed, heading_confirmed, heading_only, allowed_codes)
+    changes = plan_changes(data, rules, degree, style, confirmed, heading_confirmed, heading_only, allowed_codes, image_reviewed_sections=image_reviewed_sections)
     if not changes:
         return data, audit_docx(data, rules, degree, style, confirmed, heading_confirmed), []
     document = Document(BytesIO(data))
@@ -385,13 +391,13 @@ def format_docx(data, rules, degree, style, confirmed, heading_confirmed=None, h
     return result, after, changes
 
 
-def format_margins(data, rules, degree):
+def format_margins(data, rules, degree, *, image_reviewed_sections=()):
     """Apply only independently verified page margins, preserving every other DOCX part."""
     validate_docx_input(data, "input.docx")
     codes = {"PPKI-LAY-008", "PPKI-LAY-009", "PPKI-LAY-010", "PPKI-LAY-011"}
     before = audit_docx(data, rules, degree)
     document = Document(BytesIO(data))
-    result, after, changes = format_docx(data, rules, degree, None, False, allowed_codes=codes)
+    result, after, changes = format_docx(data, rules, degree, None, False, allowed_codes=codes, image_reviewed_sections=image_reviewed_sections)
     validate_docx_input(result, "hasil.docx")
     after_map = {(r["rule_code"], r["location"]): r for r in after}
     changed = {(r["rule_code"], r["location"]) for r in changes}
@@ -409,6 +415,8 @@ def format_margins(data, rules, degree):
             status, reason = "uncertain", skip
         elif row["status"] == "pass":
             status, reason = "already_compliant", "Margin sudah sesuai."
+        elif code in {"PPKI-LAY-008", "PPKI-LAY-009"} and key not in changed:
+            status, reason = "uncertain", "PREFLIGHT gambar: perubahan horizontal ditahan; periksa risiko di Microsoft Word."
         else:
             status, reason = "uncertain", "Aturan, konteks atau properti belum aman diperbaiki."
         report.append({"lokasi": location, "rule_code": code, "properti": PAGE_CODES[code][0],

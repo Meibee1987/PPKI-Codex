@@ -12,7 +12,8 @@ from docx import Document
 
 from core.rules import filter_rules, load_rules
 from core.audit import audit_docx, summarize, font_candidates, heading_candidates, page_number_structure, illustration_structure, citation_diagnostics, document_structure, validate_docx_input
-from core.formatter import format_docx, plan_changes, skipped_changes, format_margins, font_targets
+from core.formatter import format_docx, plan_changes, skipped_changes, format_margins, font_targets, candidate_changes
+from core.preflight import image_preflight
 from core.structure import document_structure_map, recognize_structure, safe_format_scope
 import core.operator_review as operator_review
 import core.ai_planner as ai_planner
@@ -275,16 +276,50 @@ if beta_result and beta_consent:
     if summary_beta["planned"]:
         st.download_button("Download DOCX hasil beta", beta_result["data"], file_name=Path(uploaded.name).stem + "_beta_formatted.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
+def show_image_preflight(report, prefix, source_sha256):
+    st.subheader("Preflight gambar - " + prefix)
+    st.write(f"Status: {report['status']} | Gambar diperiksa: {report['images_checked']} | Perlu review: {report['images_needing_review']}")
+    st.caption("Pemeriksaan lebar dari struktur DOCX dan rencana halaman; PASS bukan bukti seluruh layout Word benar. Tidak ada resize otomatis.")
+    if report["images_needing_review"]:
+        st.warning("NEEDS_REVIEW: " + report["advice"])
+    if report["images"]:
+        st.dataframe(report["images"], hide_index=True)
+    reviewed = set()
+    fingerprint = sha256(json.dumps({"source_sha256": source_sha256, "degree": degree, "report": report}, sort_keys=True).encode()).hexdigest()
+    for section in report["review_sections"]:
+        if st.checkbox(f"Saya telah memeriksa risiko gambar section {section} di Microsoft Word untuk rencana {prefix} ini.", key=f"image_review_{prefix}_{fingerprint}_{section}"):
+            reviewed.add(section)
+    if set(report["review_sections"]) - reviewed:
+        st.info("Perubahan margin horizontal/ukuran halaman pada section berisiko ditahan sampai direview. Operasi aman lainnya tetap dapat diterapkan.")
+    return reviewed
+
+
 st.subheader("Perbaikan margin tanpa AI")
 st.caption("Memakai salinan Beta yang tervalidasi bila tersedia, atau dokumen unggahan. Font hanya diterapkan pada cakupan Beta yang sudah diverifikasi; tidak ada permintaan AI baru.")
+margin_image_reviewed = set()
+margin_preflight_key = None
+st.session_state.pop("margin_preflight", None)
+if valid_upload and 'rules' in locals():
+    try:
+        margin_source = beta_result["data"] if beta_result else uploaded.getvalue()
+        margin_candidates = candidate_changes(margin_source, rules, degree, None, False, allowed_codes={"PPKI-LAY-008", "PPKI-LAY-009", "PPKI-LAY-010", "PPKI-LAY-011"})
+        margin_preflight = image_preflight(margin_source, margin_candidates, max_bytes=max_upload_mb * 1024 * 1024)
+        st.session_state.margin_preflight = margin_preflight
+        margin_image_reviewed = show_image_preflight(margin_preflight, "margin", sha256(margin_source).hexdigest())
+        margin_preflight_key = (sha256(margin_source).hexdigest(), json.dumps(margin_preflight, sort_keys=True), tuple(sorted(margin_image_reviewed)))
+    except Exception:
+        logging.exception("Preflight margin gagal")
+        st.error("Preflight gambar tidak dapat diselesaikan; lakukan audit ulang sebelum perbaikan margin.")
+if st.session_state.get("margin_result", {}).get("preflight_key") != margin_preflight_key:
+    st.session_state.pop("margin_result", None)
 if st.button("Perbaiki margin deterministik"):
     st.session_state.pop("margin_result", None)
-    if not valid_upload or 'rules' not in locals():
-        st.error("Pilih DOCX valid dan pastikan aturan tersedia.")
+    if not valid_upload or 'rules' not in locals() or margin_preflight_key is None:
+        st.error("Pilih DOCX valid, pastikan aturan tersedia dan preflight selesai.")
     else:
         try:
             source = beta_result["data"] if beta_result else uploaded.getvalue()
-            margin_doc, margin_rows = format_margins(source, rules, degree)
+            margin_doc, margin_rows = format_margins(source, rules, degree, image_reviewed_sections=margin_image_reviewed)
             previous_operations = beta_result["operations"] if beta_result else []
             font_rows = [r for r in previous_operations if r["rule_code"] == "PPKI-LAY-005" and r["status"] == "applied"]
             source_doc = Document(BytesIO(uploaded.getvalue()))
@@ -292,7 +327,7 @@ if st.button("Perbaiki margin deterministik"):
             font_runs = sum(len(targets) for targets in targets_by_paragraph) if all(targets is not None for targets in targets_by_paragraph) else None
             st.session_state.margin_result = {"data": margin_doc, "rows": margin_rows, "previous": previous_operations, "font_runs": font_runs,
                                                "unknown_normalized": beta_result["summary"]["unknown_to_normalize"] if beta_result else 0,
-                                               "changed": margin_doc != uploaded.getvalue()}
+                                               "changed": margin_doc != uploaded.getvalue(), "preflight_key": margin_preflight_key}
         except ValueError as exc:
             st.error(str(exc))
         except Exception:
@@ -510,13 +545,21 @@ if snapshot and valid_upload and uploaded is not None and 'rules' in locals():
             with summary_area:
                 show_summary(snapshot["before"])
         st.header("4. Rencana perbaikan dan download")
+        general_candidates = candidate_changes(uploaded.getvalue(), rules, degree, style_id, snapshot["confirmed"], snapshot["heading_confirmed"], snapshot["heading_only"])
+        general_preflight = image_preflight(uploaded.getvalue(), general_candidates, max_bytes=max_upload_mb * 1024 * 1024)
+        general_image_reviewed = show_image_preflight(general_preflight, "umum", document_key)
+        checked_plan = plan_changes(uploaded.getvalue(), rules, degree, style_id, snapshot["confirmed"], snapshot["heading_confirmed"], snapshot["heading_only"], image_reviewed_sections=general_image_reviewed)
+        if checked_plan != snapshot["plan"]:
+            st.session_state.pop("output_t4a", None)
+        snapshot["plan"] = checked_plan
+        snapshot["skipped"] = skipped_changes(uploaded.getvalue(), rules, degree, audit_docx(uploaded.getvalue(), rules, degree, style_id, snapshot["confirmed"], snapshot["heading_confirmed"]), checked_plan, style_id, snapshot["confirmed"], snapshot["heading_only"])
         st.write("Rencana perbaikan (hanya aturan Auto):")
         if snapshot["plan"]:
             st.dataframe(snapshot["plan"], hide_index=True)
             if st.button("Terapkan Perbaikan Otomatis"):
                 st.session_state.pop("output_t4a", None)
                 try:
-                    output, after, changes = format_docx(uploaded.getvalue(), rules, degree, style_id, snapshot["confirmed"], snapshot["heading_confirmed"], snapshot["heading_only"])
+                    output, after, changes = format_docx(uploaded.getvalue(), rules, degree, style_id, snapshot["confirmed"], snapshot["heading_confirmed"], snapshot["heading_only"], image_reviewed_sections=general_image_reviewed)
                     if changes != snapshot["plan"]:
                         raise ValueError("Rencana berubah; lakukan audit kembali.")
                 except (ValueError, OSError) as exc:

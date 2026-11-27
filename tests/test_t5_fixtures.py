@@ -27,10 +27,12 @@ def test_representative_documents(filename, degree, expected_changes, expected_s
     digest = sha256(data).digest()
     rules = load_rules()
     before = audit_docx(data, rules, degree, None, False)
-    plan = plan_changes(data, rules, degree, None, False)
+    # Simulate explicit review of this known fixture to retain historical handler coverage.
+    reviewed = set(range(1, len(Document(BytesIO(data)).sections) + 1))
+    plan = plan_changes(data, rules, degree, None, False, image_reviewed_sections=reviewed)
     planned = {(item["rule_code"], item["location"]) for item in plan}
     skipped = [item for item in before if item["rule_code"] in PAGE_CODES and item["status"] in {"fail", "needs_review", "not_supported"} and (item["rule_code"], item["location"]) not in planned]
-    result, after, changes = format_docx(data, rules, degree, None, False)
+    result, after, changes = format_docx(data, rules, degree, None, False, image_reviewed_sections=reviewed)
     assert len(changes) == expected_changes and len(skipped) == expected_skips
     status = {(item["rule_code"], item["location"]): item["status"] for item in after}
     assert all(status[(item["rule_code"], item["location"])] == "pass" for item in changes)

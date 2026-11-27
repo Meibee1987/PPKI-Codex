@@ -117,25 +117,88 @@ dilewati tersedia melalui expander. Ringkasan tetap dihitung per aturan dengan
 fungsi sebelumnya; rencana Auto dan unduhan tetap terpisah dari diagnostik.
 Rincian pengujian: [laporan T12](T12_REPORT.md).
 
-## T13 — Acceptance testing [teknis lulus; belum ditutup]
+## T13 — Acceptance testing [DITUTUP: PASS TERBATAS]
 
-Empat fixture lulus acceptance teknis dan regresi. Pemeriksaan visual akhir
-Microsoft Word dan pengujian dokumen nyata anonim masih PENDING, sehingga T13
-belum ditutup. Lihat [laporan T13](T13_REPORT.md) dan
-[checklist Word](T13_WORD_CHECKLIST.md).
+Ditutup 26 November 2026 untuk korpus, operasi dan batas acceptance yang
+tercatat pada [matriks final Word](T13_WORD_VISUAL_ACCEPTANCE_REPORT.md).
+Varian tesis 71 dan hasil manual S2 ber-hash telah diterima operator sebagai
+**ACCEPTED FOR TESTING**. Sebelas paragraf ambigu termasuk 401 tetap
+dikecualikan, Beta 82 bukan output final yang diterima. Bukti Word dan
+integritas digunakan tanpa mengulang pengujian: tesis 86 -> 86 halaman,
+Master 9 -> 9 dan S2 3 -> 3. Gambar S2 dikoreksi manual pada salinan menjadi
+13,9 cm dan masuk bidang tulisan; output margin-only lama tetap menjadi
+bukti overflow, bukan diluluskan retroaktif.
+
+Referensi T5 "halaman 4 S2" **SUPERSEDED BY REPRODUCIBLE S2 ACCEPTANCE** melalui
+opsi A yang telah disetujui. Artefak output historis/jenis nomor halaman tetap
+tidak teridentifikasi, tidak menjadi blocker pencarian lagi. Kriteria
+pengganti mempunyai input/output ber-hash, empat koreksi margin, bukti
+integritas, layout Word serta pemeriksaan seluruh halaman S2. Hasil final
+diterima dengan langkah koreksi ukuran gambar manual yang eksplisit.
+
+Tidak ada blocker wajib tersisa untuk cakupan terbatas ini. Normalisasi hanya
+pada paragraf/konteks tervalidasi; struktur ambigu dan gutter/mirror dilindungi.
+Objek kompleks hanya diluluskan untuk preservasi yang diuji. Manipulasi objek
+kompleks, pembaruan field/TOC, endnote, resize gambar otomatis dan aturan tanpa
+handler tetap belum tervalidasi/di luar acceptance. Penutupan ini bukan bukti
+317 aturan terpenuhi atau rilis produksi umum. Laporan/checklist awal tetap
+riwayat; status terbaru merujuk matriks final dan WORK_PROGRESS.
+
+### v0.6 — PREFLIGHT overflow gambar [ACCEPTANCE PASS TERBATAS; 299 PYTEST PASSED]
+
+Preflight read-only telah diintegrasikan ke rencana formatter dan Streamlit.
+Ukuran gambar dibandingkan dengan bidang setelah kandidat perubahan margin/
+ukuran halaman, menggunakan mapping yang ada. PASS hanya untuk lebar inline
+sederhana; overflow/posisi ambigu -> NEEDS_REVIEW; tanpa gambar -> NOT_APPLICABLE.
+Lokasi, section, ukuran, bidang dan alasan tampil sebelum tindakan.
+
+Perubahan horizontal section berisiko ditahan sampai review eksplisit;
+operasi lain tidak diblokir menyeluruh. Review terikat konteks dapat dibatalkan.
+Konfirmasi tidak melewati pengamanan gutter/mirror/T14 dan tidak mengubah
+gambar atau menjadikan warning PASS. Floating, tabel, story/posisi yang tidak
+pasti tetap konservatif. Tidak ada resize/crop/move otomatis atau perubahan
+317 aturan. Bukti S2 lokal: 14,2 cm -> NEEDS_REVIEW; 13,9 cm -> PASS lebar
+sederhana; kedua hash sumber tidak berubah.
+
+Kelanjutan 27 November: lima kegagalan regresi lama sudah diperbaiki secara
+minimal dan 298 tes pada keadaan diwarisi lulus. Satu bug konfirmasi lintas
+dokumen dengan geometri sama kemudian direproduksi dan diperbaiki melalui
+kunci widget yang terikat hash sumber; **30 tes terfokus sesudah perbaikan
+lulus**. Regresi penuh final sesudah perbaikan hash: **299 passed**, 0 failed/error/skip; tidak ada kegagalan tersisa. Lihat
+[laporan v0.6](PREFLIGHT_V06_REPORT.md) untuk daftar kegagalan, perbaikan,
+perintah dan hasil aktual. T13 PASS TERBATAS tidak dibuka ulang.
+
+Acceptance akhir 27 November: **PASS TERBATAS** pada alur yang diuji melalui
+Edge headless terhubung Streamlit nyata (bukan AppTest/mock), serta Word COM
+read-only + review semua tiga halaman render output. Kiri/kanan berisiko
+ditahan, atas/bawah diterapkan; gambar 14,2 cm tetap. Cancel, pergantian
+A/B dengan geometri sama, jenjang dan rencana membatalkan review lama.
+Fixture 13,9 cm PASS lebar sederhana. Tidak teramati clipping/overlap baru;
+caption yang masih terpisah dari gambar sudah demikian pada input. Artefak
+privat dan batas driver dicatat di laporan v0.6; toolbar CSV headless opsional
+belum diluluskan, tombol CSV/DOCX aplikasi berhasil. Tidak ada perubahan kode
+produksi, sehingga 299 pytest terakhir tidak diulang. Tidak ada klaim Word GUI
+manual/operator, resize otomatis atau pemenuhan seluruh aturan.
+
+**Prioritas berikutnya:** review diff/staged untuk privasi dan sinkronisasi
+GitHub aman setelah instruksi eksplisit; private_tests/DOCX privat/log tidak
+ikut publikasi. Preflight tetap tidak menggantikan pemeriksaan layout Word
+untuk dokumen lain. Tidak perlu mengulang T13 atau render 86 halaman tesis.
 
 ## T14 — Stabilitas, keamanan file, dan error [selesai untuk cakupan diuji]
 
 Upload diperiksa sebelum pemrosesan, batas ukuran dapat dikonfigurasi, dan
 state audit/unduhan dibatalkan saat konteks input berubah. Pengujian negatif,
-state dan regresi dicatat di [laporan T14](T14_REPORT.md). T13 tetap menunggu
-pemeriksaan visual Word dan dokumen nyata.
+state dan regresi dicatat di [laporan T14](T14_REPORT.md). T13 telah ditutup
+PASS TERBATAS pada korpus/cakupan yang dicatat; pengamanan T14 tetap berlaku.
 
 ## T15 — Finalisasi MVP v1.0 [RELEASE CANDIDATE]
 
 Dokumentasi kemampuan, panduan dan keterbatasan telah disiapkan. Acceptance
-dokumen nyata serta pemeriksaan visual akhir Word masih PENDING; belum siap
-produksi atau pemakaian dokumen pelanggan. Lihat [laporan rilis](T15_RELEASE_REPORT.md).
+terbatas T13 telah ditutup sesuai matriks final; hasil tersebut tidak dengan
+sendirinya menyatakan kesiapan produksi umum atau pemakaian dokumen pelanggan.
+Lihat [laporan rilis](T15_RELEASE_REPORT.md) untuk catatan tahap rilis; status
+historis acceptance di sana merujuk keadaan sebelum penutupan terbatas T13.
 
 ## v1.1 — Pengenalan struktur read-only [cakupan diagnostik]
 

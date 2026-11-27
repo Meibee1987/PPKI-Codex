@@ -1,6 +1,761 @@
 # T13 — Validasi Visual Microsoft Word
 
-**Status: PARTIAL.** Operator menerima terbatas cakupan 71 paragraf pada tesis uji dan menahan 11 paragraf, termasuk seluruh operasi 401. **Acceptance teknis varian 71: PASS TERBATAS** (86 halaman, integritas utuh, visual tujuh halaman terfokus). Penerimaan akhir file oleh operator, item historis halaman 4 S2 dan cakupan acceptance objek kompleks yang belum teruji tetap terbuka. Output Beta 82 bukan hasil final yang disetujui; tidak ada izin otomatis generik.
+**Status terkini: PASS TERBATAS - T13 ditutup untuk cakupan acceptance yang
+disepakati, 26 November 2026.** Operator telah memeriksa hasil manual S2 di
+Microsoft Word dan menerima file ber-hash di bawah sebagai **ACCEPTED FOR
+TESTING**. Penerimaan varian tesis 71 tetap berlaku. Semua gerbang acceptance
+terbatas pada matriks ini terpenuhi; tidak ada blocker wajib yang masih terbuka
+dalam cakupan tersebut. Ini bukan kelulusan seluruh checklist, semua jenis
+DOCX, seluruh 317 aturan atau kesiapan produksi umum.
+
+## Keputusan akhir operator dan penutupan terbatas - 26 November 2026
+
+Persetujuan operator berasal dari pernyataan eksplisit pada percakapan setelah
+pemeriksaan langsung di Word, bukan disimpulkan dari izin eksperimen. Hash
+file S2 cocok dengan `manual_resize_manifest.json` dan
+`word_position_after.json`; hash varian 71 tetap cocok dengan keputusan
+sebelumnya. Tidak ada Word/render baru atau penyimpanan DOCX pada tahap ini.
+
+Catatan keputusan terikat hash disimpan privat pada
+`private_tests/t13_s2_image_resize_20261126/operator_final_limited_acceptance_20261126.json`.
+Persetujuan ini hanya untuk salinan pengujian S2 tersebut, bukan izin otomatis
+mengubah ukuran gambar dokumen lain. Seluruh operasi pada 11 paragraf ambigu,
+termasuk 401, tetap dikecualikan; Beta 82 tetap bukan output final yang diterima.
+
+Referensi historis T5 tetap **SUPERSEDED BY REPRODUCIBLE S2 ACCEPTANCE** sesuai
+opsi A yang sudah disetujui. Artefak output historis tidak diklaim ditemukan.
+Output S2 margin-only yang masih overflow disimpan sebagai bukti diagnosis,
+bukan diberi PASS retroaktif. Yang diterima adalah hasil dengan koreksi manual.
+
+Manipulasi objek kompleks, pembaruan field/TOC, endnote dan resize gambar
+otomatis **belum tervalidasi dan di luar acceptance**. Bukti preservasi objek
+yang diuji tetap PASS TERBATAS. PREFLIGHT menjadi prioritas pengembangan
+berikutnya, belum diimplementasikan dan bukan blocker penutupan ini.
+
+## Matriks acceptance final - 26 November 2026
+
+Bagian ini adalah acuan status terbaru. Catatan bertanggal sama pada bagian
+historis di bawah, checklist awal dan manifest lama dipertahankan sebagai
+riwayat. Status PENDING penerimaan S2/T13 PARTIAL lama telah diselesaikan oleh
+keputusan akhir ini; cakupan yang belum diuji tetap tidak diberi PASS.
+
+### Kelengkapan bukti yang diverifikasi kembali
+
+Pemeriksaan kali ini hanya pembacaan artefak dan pencocokan SHA-256. Hash
+varian 71 cocok dengan keputusan operator akhir; hash pasangan Master,
+input S2 sintetis, output margin-only dan output resize cocok dengan manifest
+masing-masing. Sebanyak 172 PNG pasangan Beta 82 serta tujuh PNG sampel varian
+71 masih tersedia; ringkasan perbandingan, bukti Word, manifest integritas dan
+render terfokus Master/S2 tersedia. Tidak ada pengujian Word, render atau
+perbandingan pixel baru yang diklaim pada finalisasi ini.
+
+Angka **82/86 halaman identik** dan perbedaan 29/31/33/34 adalah bukti pasangan
+Beta 82, bukan hasil render penuh varian 71. Varian 71 memiliki bukti Word
+86 halaman, integritas seluruh dokumen, tujuh sampel visual 17/29/31/33/34/74/76
+dan penerimaan operator yang sudah tercatat. Sebanyak 79 halaman varian itu
+tidak diklaim telah dirender ulang. Tidak perlu meminta penerimaan varian 71
+kembali atau mengganti file final yang diterima dengan Beta 82.
+
+Ada sisa nilai awal `geometry_after_word: PENDING` di manifest eksperimen S2.
+Itu bukan kekurangan pengujian posisi terkini: `word_position_after.json`
+terikat SHA-256 output yang sama, dan `word_pdf_image_bounds.json` serta
+`image_within_text_bounds_after: true` merekam hasil selesai. Manifest riwayat
+tidak ditulis ulang; bukti selesai tersebut menjadi rujukan geometri akhir.
+Demikian pula daftar blocker lama pada keputusan varian 71 merujuk keadaan
+sebelum pengujian Master dan penggantian S2, bukan keputusan baru operator.
+
+### Matriks acceptance akhir pada cakupan eksplisit
+
+| Komponen/kriteria | Bukti dan batas aktual | Status terkini / dampak penutupan |
+|---|---|---|
+| Fixture font dan margin | Dibuka Word, target font TNR 12/Bold/Italic/Justify dan Page Setup diverifikasi operator; Word font 1 -> 1, margin 2 -> 2. Halaman kedua margin berasal dari desain section, bukan halaman kosong baru | PASS TERBATAS untuk pemeriksaan yang tercatat; rincian checklist yang tidak diperiksa terpisah tidak diluluskan |
+| Tesis varian 71 | 71 spasi LAY-017 dan 3 indentasi LAY-018; teks, 29 tabel, 15 gambar inline, 896 paragraf/2 section terjaga; Word 86 -> 86; tujuh sampel visual; penerimaan operator terikat hash | Teknis PASS TERBATAS; ACCEPTED FOR TESTING sudah diberikan untuk salinan ini |
+| Pengecualian 11 paragraf, termasuk 401 | Semua properti format sumber dan XML dipertahankan; tidak ada operasi spasi/indentasi pada yang ditahan | Terpenuhi; Beta 82 bukan hasil final yang diterima |
+| Tabel, gambar, caption, hyperlink | Struktur/isi/media terjaga pada pasangan yang diuji; sampel tesis/Master dan seluruh halaman S2 ditinjau; merged cells/landscape table Master masuk bukti preservasi | PASS TERBATAS untuk preservasi dan layout yang diperiksa, bukan perbaikan otomatis objek/caption |
+| Header/footer, nomor halaman, section | Bagian paket dan konfigurasi non-target terjaga; contoh Master dan S2 tampak; S2 fisik 1/2/3 dicatat terpisah dari nomor footer | PASS TERBATAS; konfigurasi gutter/mirror tesis dilindungi |
+| Footnote, persamaan, landscape Master | Satu footnote aktif dan satu persamaan native; section 5 landscape. Word 9 -> 9; halaman 3/4/8 ditinjau, 3/8 identik pixel, reflow halaman 4 sesuai perubahan paragraf | PASS TERBATAS preservasi contoh yang diuji; bukan manipulasi objek tersebut |
+| Field/PAGE/TOC | Struktur, cached content dan tampilan teramati dipertahankan; tidak ada pengujian update field atau pembuatan TOC | PASS TERBATAS preservasi saja; update/validitas seluruh hasil field di luar cakupan |
+| Endnote, chart Word native/OLE atau konstruksi yang tidak ada pada korpus | Tidak ada contoh aktif yang dapat dipakai menguji kemampuan tersebut | NOT APPLICABLE pada input yang tidak memuatnya; belum tervalidasi secara umum, tidak diberi PASS |
+| T5 historis "halaman 4 S2" | Opsi A sudah disetujui; sumber cocok commit 4ef1bbd, output historis/jenis nomor tetap tidak teridentifikasi | SUPERSEDED BY REPRODUCIBLE S2 ACCEPTANCE; bukan blocker pencarian artefak lagi |
+| S2-PRESERVATION-01, output margin-only | Empat margin 4/3/3/3 cm dan integritas lulus; Word 3 -> 3; seluruh halaman diperiksa. Caption/gambar dari terpisah di input menjadi bersama di halaman 3. Gambar lama overflow aktual 5,65 pt | Output ini tetap PARTIAL/NEEDS_REVIEW dan disimpan sebagai diagnosis; tidak diluluskan retroaktif |
+| Hasil S2 setelah intervensi manual | Salinan ber-hash di bawah: gambar 13,9 cm, rasio tetap, posisi masuk bidang teks; 3 -> 3 halaman; seluruh halaman ditinjau, objek/non-target terjaga | Teknis PASS TERBATAS; operator ACCEPTED FOR TESTING untuk file ini, bukan izin resize otomatis |
+| Regresi dan pengamanan | Hasil terakhir 274 passed; tidak ada perubahan kode/aturan atau pelepasan pengamanan T14 | Bukti regresi terakhir digunakan; bukan hasil tes ulang hari ini |
+| Penutupan T13 | Gabungan bukti di atas dan persetujuan akhir S2; terbatas pada korpus/operasi/versi hasil yang tercatat | PASS TERBATAS; ditutup pada cakupan eksplisit ini, bukan seluruh aturan atau produksi umum |
+
+### Identitas file S2 yang diterima operator
+
+File yang diterima adalah **hasil koreksi manual**, bukan output margin-only:
+
+`private_tests/t13_s2_image_resize_20261126/S2_manual_image_13_9cm_experiment.docx`
+
+SHA-256 sintetis yang diverifikasi kembali:
+`4e13c23cf6b9e3d682cd8d70801e0f436c47ee87664cef4e4a68087b5bc0c299`.
+
+- Word 16.0 build 16.0.20625: **3 -> 3 halaman fisik**, 1 section portrait;
+  footer menampilkan Halaman 1, 2, 3. Empat margin tetap kiri 4 cm,
+  kanan/atas/bawah 3 cm.
+- Gambar **14,2 -> 13,9 cm**, tinggi 7,228 cm, rasio tetap. Posisi aktual dari
+  PDF Word akhir x=114,82-508,76 pt berada dalam bidang x=113,40-510,25 pt.
+- Caption dan gambar tetap halaman 3; tabel 18x5 tetap halaman 2. Media, teks,
+  caption, tabel, hyperlink, margin/section dan header/footer tidak diubah.
+  Hanya empat atribut dimensi gambar berubah dari output margin-only.
+- Semua tiga halaman hasil telah ditinjau pada pengujian sebelumnya; 1/2
+  identik pixel dengan margin-only, halaman 3 berubah sesuai ukuran gambar
+  dan reflow teks di bawahnya. Tidak teramati clipping, distorsi atau overlap
+  baru. Sumber dan output sebelumnya dipertahankan.
+
+**Keputusan operator: ACCEPTED FOR TESTING.** Operator menyatakan telah
+memeriksa file S2 manual ini di Microsoft Word dan menyetujui salinan pengujian
+tersebut. Penerimaan dan hash dicatat dalam keputusan privat di atas. Izin
+resize otomatis untuk dokumen lain tidak diberikan.
+
+Gerbang penerimaan akhir telah terpenuhi. Tidak ada kegagalan teknis atau
+persyaratan wajib yang belum didisposisi dalam cakupan acceptance terbatas
+yang disepakati, sehingga **T13 ditutup sebagai PASS TERBATAS**. Rincian yang
+belum diuji tetap dinyatakan belum diuji; penutupan terbatas tidak mengubahnya
+menjadi PASS. Pengujian luas endnote, update field atau variasi objek lain
+hanya diperlukan bila kelak cakupan dukungan diperluas.
+
+### Batas kemampuan yang harus menyertai penutupan
+
+1. Normalisasi hanya pada paragraf, aturan dan konteks yang tervalidasi;
+   keputusan 71 berlaku pada salinan tesis ini. Struktur ambigu dipertahankan,
+   termasuk semua operasi pada 11 paragraf dan 401.
+2. Objek kompleks dilindungi. Bukti preservasi bukan izin otomatis mengubah
+   isi tabel/gambar, caption, footnote, persamaan atau layout kompleks.
+3. Pembaruan field/TOC, endnote aktif dan konstruksi tidak tercakup belum
+   tervalidasi; aturan tanpa handler/manual.not-implemented tetap belum didukung.
+4. Resize gambar S2 masih koreksi manual pada salinan. Formatter margin-only
+   dapat membuat bidang lebih sempit tanpa mengubah gambar yang dilindungi;
+   karena itu tidak ada klaim output otomatis bebas overflow atau siap untuk
+   semua dokumen pelanggan. Gutter/mirror tidak dipaksakan berubah.
+5. PASS TERBATAS adalah acceptance korpus dan operasi terdaftar; bukan
+   kepatuhan semua 317 aturan atau generalisasi ke seluruh S1/S2/S3.
+
+### Rancangan tahap berikutnya: PREFLIGHT gambar setelah rencana margin
+
+Status **DESAIN SAJA**, belum diimplementasikan. Ini prioritas berikutnya
+setelah penutupan terbatas T13, bukan kemampuan yang sudah diluluskan:
+
+| Tahap | Perilaku yang direncanakan |
+|---|---|
+| Input audit | Baca DOCX dan rencana perubahan margin tanpa menyimpan input. Petakan gambar ke section, paragraf/sel/kolom serta inline/floating; gunakan margin hasil rencana dan orientasi/ukuran kertas, indentasi/alignment, gutter/mirror bila dapat ditentukan |
+| Analisis batas | Bandingkan dimensi dan posisi yang dapat diturunkan secara aman dengan bidang tersedia. Lebar saja hanya indikator risiko; gambar kecil dengan offset dapat keluar bidang. Jika anchor/wrapping/kolom/gutter tidak dapat dipastikan, jangan simpulkan muat |
+| Hasil | NEEDS_REVIEW untuk indikasi overflow atau posisi/bidang ambigu; sertakan lokasi gambar/section, ukuran, bidang sebelum/sesudah rencana, dasar perhitungan/ketidakpastian dan alasan. Bedakan estimasi struktur dari verifikasi posisi aktual Word |
+| Keputusan operator | Tampilkan peringatan pada rencana sebelum apply; tindakan terkait yang berisiko memerlukan review, bukan silent resize/crop/move. Pertahankan media, caption, teks dan input. Penanganan manual selalu pada salinan |
+| Verifikasi opsional | Jika Word lokal tersedia, ukur bounding box layout terhadap batas teks dan catat toleransi/unit. Tanpa Word/posisi pasti tetap NEEDS_REVIEW, bukan klaim kompatibilitas visual |
+| Pengujian saat implementasi kelak | Sintetis 14,2 cm versus bidang 14,0 cm memicu warning; 13,9 cm pada posisi yang terbukti muat tidak false alarm overflow; gambar lebih kecil tetapi bergeser keluar bidang tetap warning; konteks ambigu memicu review; hash input/media dan isi tidak berubah |
+
+Tidak ada resize otomatis atau perluasan aturan JSON dalam rancangan ini.
+Tidak ada API, perubahan formatter, pytest ulang atau render besar pada
+finalisasi dokumentasi. Regresi terakhir tetap **274 passed**.
+
+## Riwayat sebelum persetujuan akhir
+
+Catatan berikut merekam keadaan pada saat masing-masing pemeriksaan. Status
+PARTIAL/PENDING penerimaan S2 di riwayat ini digantikan keputusan akhir di
+atas; keterbatasan atau kegagalan output lama tidak dihapus.
+
+## Eksperimen koreksi manual gambar S2 — 26 November 2026
+
+**PASS TERBATAS untuk eksperimen koreksi manual pada salinan.** Pengguna
+secara eksplisit meminta pengukuran posisi aktual dan mengizinkan resize
+hanya jika overflow terbukti. Eksperimen benar-benar dilaksanakan, bukan
+hanya rekomendasi, dan bukan implementasi kemampuan formatter otomatis.
+T13 keseluruhan tetap **PARTIAL** sampai penerimaan/batas hasil S2 dengan
+intervensi manual ini difinalkan. Tidak meminta ulang acceptance varian 71.
+
+### Posisi aktual sebelum resize
+
+Salinan `private_tests/t13_s2_image_resize_20261126/S2_before_image_resize.docx`
+identik dengan output margin-only sebelumnya. Word 16.0 build 16.0.20625
+membukanya read-only, print layout, repaginate dan menggulir range gambar
+ke tampilan. Range awal/akhir gambar memberi posisi relatif halaman sekitar
+113,25 dan 515,25 pt, sementara batas kanan teks 510,25 pt. Posisi range/caret
+Word mengalami pembulatan; tidak dianggap sebagai tepi gambar presisi penuh.
+
+Sebagai konfirmasi independen posisi objek yang benar-benar dilayout,
+bounding box gambar diekstrak dari PDF hasil ekspor Word, bukan dihitung
+hanya dari lebar DOCX. Tepi gambar aktual **x=113,40 sampai 515,90 pt**,
+bidang teks **113,40 sampai 510,25 pt**. Overflow kanan **5,65 pt**, sekitar
+**0,199 cm**. Jadi gambar benar-benar melewati batas bidang tulisan.
+Utilitas pdftohtml tidak tersedia; bukti koordinat diperoleh melalui
+pdfplumber bawaan runtime atas PDF Word, tanpa memasang dependensi proyek.
+
+### Koreksi terbatas yang dilakukan
+
+Input: `private_tests/t13_s2_replacement/S2_margin_only_after.docx`.
+Output baru, tidak menimpa file mana pun:
+
+`private_tests/t13_s2_image_resize_20261126/S2_manual_image_13_9cm_experiment.docx`
+
+SHA-256 output eksperimen sintetis:
+`4e13c23cf6b9e3d682cd8d70801e0f436c47ee87664cef4e4a68087b5bc0c299`.
+
+Lebar gambar **14,2 → 13,9 cm**; tinggi disesuaikan proporsional menjadi
+**7,228 cm**, dengan kesalahan pembulatan rasio kurang dari 0,000001. Hanya
+empat atribut dimensi cx/cy pada extent gambar inline dan transform gambar
+yang berubah. Media gambar asli identik byte-per-byte, tidak di-crop atau
+digambar ulang. Caption, teks, tabel, hyperlink, section, margin dan semua
+format selain dimensi target dipertahankan. Seluruh bagian paket selain XML
+utama identik; setelah empat atribut dimensi target disisihkan, seluruh XML
+utama sama. Tidak ada perubahan formatter, aturan JSON atau tesis privat.
+
+### Word dan review seluruh halaman hasil
+
+Word membuka output eksperimen **read-only**, menghitung ulang layout,
+mengekspor tiga halaman dan menutup tanpa menyimpan. Hash input lama, salinan
+input dan output eksperimen tetap sesuai manifest sebelum/sesudah pemeriksaan.
+
+| Pemeriksaan | Sebelum margin-only / sesudah resize | Status |
+|---|---|---|
+| Halaman fisik Word | **3 / 3**; tidak diasumsikan dari hasil sebelumnya | PASS TERBATAS |
+| Lebar/tinggi | 14,2 cm menjadi 13,9 cm; rasio sumber dipertahankan | PASS TERBATAS |
+| Posisi gambar aktual pada PDF Word | x=113,40–515,90 pt menjadi **114,82–508,76 pt** | PASS TERBATAS, hasil seluruhnya di dalam batas 113,40–510,25 pt |
+| Caption dan gambar | Tetap bersama pada halaman fisik 3, caption tetap sebelum gambar | PASS TERBATAS |
+| Tabel | Tetap halaman 2; seluruh XML dan data 18 baris/5 kolom sama | PASS TERBATAS |
+| Header/footer/nomor | Part identik, nomor tercetak tetap 1/2/3 sesuai indeks fisik yang dicatat terpisah | PASS TERBATAS |
+| Halaman 1 dan 2 | PNG identik pixel dengan output margin-only pada skala 1400 px; ditinjau visual | PASS TERBATAS |
+| Halaman 3 | Ditinjau seluruhnya: gambar sedikit lebih kecil, caption tetap, teks sesudah gambar bergeser naik sesuai pengurangan tinggi | Reflow diharapkan; tidak teramati clipping, distorsi atau overlap baru |
+| Section/margin/isi lainnya | 1 section portrait, 4/3/3/3 cm tetap; semua teks/media/relasi dan properti non-target sama | PASS TERBATAS |
+
+Koordinat PDF memakai point dan tidak sama dengan koordinat pixel PNG.
+Ukuran DOCX akhir tepat 13,9 cm; pembulatan display Word/PDF dapat berbeda
+sedikit dalam unit point. Bukti geometris akhir adalah batas gambar aktual,
+bukan mengasumsikan objek muat hanya karena lebarnya di bawah 14 cm.
+
+Bukti privat: `word_position_before.json`, `word_position_after.json`,
+`word_pdf_image_bounds.json`, `manual_resize_manifest.json`, DOCX/PDF baru
+serta tiga PNG pada `private_tests/t13_s2_image_resize_20261126/`.
+Tidak ada klaim hasil PDF sebelum resize dibuat oleh tool ekstraksi; PDF
+before berasal dari ekspor Word output margin-only pada pengujian sebelumnya.
+
+### Status acceptance dan batasnya
+
+- **S2 sesudah koreksi manual pada salinan: PASS TERBATAS** untuk preservasi,
+  empat margin, geometri gambar yang kini muat, pagination serta review semua
+  halaman pada contoh ini. Tidak ada kegagalan baru teramati.
+- **Output margin-only yang belum di-resize tetap mempunyai overflow** dan
+  tidak diberi PASS retroaktif. File itu tetap disimpan sebagai bukti diagnosis.
+- **T13 keseluruhan: PARTIAL.** Hasil eksperimen ini belum dianggap sebagai
+  persetujuan akhir operator atas alur S2 dengan koreksi manual atau izin
+  memperluas cakupan. Setelah penerimaan hasil/batas ini dicatat, matriks dapat
+  difinalkan untuk penutupan terbatas; tidak perlu mengulang varian 71.
+- Legacy "halaman 4 S2" tetap **SUPERSEDED BY REPRODUCIBLE S2 ACCEPTANCE**;
+  artefak historis tidak diklaim ditemukan. Endnote belum teruji, pembaruan
+  TOC/field dan manipulasi objek kompleks tetap di luar kemampuan yang diluluskan.
+
+### Rekomendasi PREFLIGHT — belum diimplementasikan
+
+Usulkan task terpisah untuk audit **read-only** sebelum penerapan margin:
+
+1. Petakan gambar ke section/kolom dan hitung bidang tulisan berdasarkan
+   **margin yang direncanakan**, bukan hanya margin awal. Perhitungkan
+   indentasi paragraf, alignment, gutter/mirror dan konteks tabel jika jelas.
+2. Bila lebar/anchor/wrapping tidak dapat dipastikan, atau dimensi menunjukkan
+   risiko setelah margin dipersempit, keluarkan **NEEDS_REVIEW** dengan lokasi,
+   ukuran gambar, batas bidang yang diperkirakan dan alasan. Perbandingan lebar
+   saja adalah indikator risiko, bukan bukti posisi aktual.
+3. Bila layout Word tersedia, bandingkan x0/x1 aktual dengan batas bidang teks
+   (dan y0/y1 bila relevan), dengan toleransi pengukuran yang dinyatakan.
+   Layout floating, multi-kolom atau gutter ambigu tetap perlu review.
+4. Tahan tindakan terkait yang berisiko sampai operator memilih penanganan.
+   Tawarkan koreksi manual pada salinan; jangan resize otomatis, mengubah
+   caption atau menganggap gambar yang lebih sempit pasti berada di posisi aman.
+
+Ini rancangan diagnostik, bukan fitur yang sudah ada, perubahan JSON atau
+bukti bahwa handler margin-only produksi kini mendeteksi overflow. Kebutuhan
+preflight dipisahkan dari acceptance eksperimen manual yang sudah lulus.
+
+`git diff --check` lulus. Tidak ada pytest, render besar, API, pull, commit
+atau push. Regresi terakhir tetap **274 passed**. Hanya laporan/progres dan
+artefak eksperimen privat ditulis; semua sumber, output lama dan kode tetap utuh.
+
+## Eksekusi pengganti S2 setelah persetujuan opsi A — 26 November 2026
+
+**Opsi A disetujui eksplisit oleh operator.** Persetujuan tersebut mengganti
+kriteria, bukan menyatakan tes PASS. Referensi T5 "halaman 4 S2" sekarang
+**SUPERSEDED BY REPRODUCIBLE S2 ACCEPTANCE**. Catatan bahwa output/screenshot
+historis dan jenis nomor halamannya tidak ditemukan tetap dipertahankan.
+Artefak Master tidak dipakai sebagai pengganti pengujian S2 ini.
+
+**Hasil pengganti S2-PRESERVATION-01: PARTIAL.** Empat margin, integritas dan
+subkriteria caption lulus; ditemukan masalah lebar gambar terhadap bidang
+teks baru yang belum mempunyai disposisi. T13 keseluruhan tetap PARTIAL.
+
+### Identitas dan eksekusi
+
+| Artefak sintetis | Lokasi / SHA-256 |
+|---|---|
+| Input sumber | `tests/fixtures/PPKI_T4B_02_Tesis_S2_Tabel_Gambar.docx` |
+| Hash input | `59eb7139d159adc40787a247ea28c4a6e9c00894d9580e13e0b54b5aa5668c77` |
+| Salinan input | `private_tests/t13_s2_replacement/S2_before_reference.docx`; hash identik sumber |
+| Output pengujian | `private_tests/t13_s2_replacement/S2_margin_only_after.docx` |
+| Hash output | `1b151b01f528f21601ce49065c3c5944e9f960bb5cdcdf4614f886fa1af63faa` |
+
+Input cocok byte-per-byte dengan sumber pada commit `4ef1bbd`. Handler
+`format_margins` yang sudah ada dijalankan pada salinan, jenjang S2, tanpa
+konfirmasi body/heading dan tanpa AI. Hasil baru disimpan ke path privat;
+sumber tidak ditimpa. T14, validasi struktur dan audit ulang tetap aktif.
+
+| Operasi di section 1 | Sebelum (cm, dibulatkan) | Sesudah (cm, dibulatkan) | Audit ulang |
+|---|---:|---:|---|
+| LAY-008 kiri | 2,5 | 4 | PASS |
+| LAY-009 kanan | 2 | 3 | PASS |
+| LAY-010 atas | 2,5 | 3 | PASS |
+| LAY-011 bawah | 3,5 | 3 | PASS |
+
+Tepat empat operasi tersebut berstatus applied. Tidak ada format body, font,
+heading, caption, tabel, gambar atau hyperlink yang diubah. Pengulangan
+formatter dalam memori tidak menghasilkan perubahan tambahan (idempotensi);
+ini pemeriksaan hasil S2, bukan menjalankan ulang seluruh pytest.
+
+### Integritas dan hasil Word aktual
+
+| Aspek | Bukti aktual |
+|---|---|
+| Teks | Seluruh teks paragraf dan seluruh XML paragraf body identik |
+| Tabel | 1 tabel, 18 baris termasuk header, 5 kolom; seluruh XML/isi identik |
+| Gambar/media | 1 inline image; byte media, ukuran/drawing dan bagian paket terkait tetap sama |
+| Hyperlink | 1 hyperlink; struktur, teks dan relasi terjaga, tidak diklik/diuji jaringan |
+| Header/footer/field | Seluruh part dan instruksi/ref terkait identik; tampilan footer diperiksa pada semua halaman |
+| Section | 1 section portrait/A4; hanya empat atribut margin berubah, properti non-target utuh |
+| Paket | Semua bagian selain `word/document.xml` identik; struktur XML utama identik setelah hanya empat margin disisihkan |
+| Sumber/output | Hash sumber sebelum/sesudah identik; hash kedua salinan juga tetap setelah Word |
+
+Word **16.0 build 16.0.20625** membuka pasangan read-only, melakukan
+Repaginate dan ComputeStatistics, lalu menutup tanpa menyimpan. Jumlah
+halaman fisik aktual **3 → 3**, bukan dipaksakan menjadi tiga atau empat.
+Seluruh enam halaman (3 sebelum + 3 sesudah) diekspor Word dan dilihat sebagai
+PNG pada skala maksimum 1400 px. Tidak ada render tesis 86 halaman.
+
+| Indeks fisik | Footer tercetak sebelum | Footer tercetak sesudah |
+|---:|---|---|
+| 1 | Halaman 1 | Halaman 1 |
+| 2 | 2 | 2 |
+| 3 | 3 | 3 |
+
+Nomor footer di atas dibaca dari render, terpisah dari indeks fisik. Metadata
+Word AdjustedPageNumber juga 1/2/3. Tidak ada pembaruan/rebuild field/TOC yang
+dipanggil atau diklaim didukung.
+
+### Review visual seluruh halaman
+
+| Pasangan halaman | Sebelum / sesudah yang diamati | Penilaian |
+|---|---|---|
+| 1 | Judul, heading BAB I/subbab dan BAB II tetap ada; margin lebih lebar membuat wrapping lebih sempit dan BAB II bergeser lebih bawah | Reflow sesuai perubahan margin; tidak terlihat teks terpotong/bertumpuk |
+| 2 | Tabel tetap seluruhnya di halaman 2, header dan data R-01 sampai R-17 terlihat; paragraf dari halaman 1 berlanjut ke sini; heading BAB III tetap terlihat | Tabel utuh, tanpa pemisahan sel/overlap baru yang terlihat |
+| 3 | Gambar dan hyperlink terlihat; caption gambar yang semula di akhir halaman 2 kini di halaman 3 tepat sebelum gambar | Caption dan gambar kini satu halaman; tidak terlihat crop/overlap, tetapi ada temuan lebar bidang teks di bawah |
+
+XML tidak menambahkan page break eksplisit; batas halaman berubah melalui
+layout/reflow biasa. Caption tabel tetap di halaman 2. Caption gambar
+**2 → 3**, gambar **3 → 3**: celah halaman **1 → 0**, urutan caption sebelum
+gambar tetap. Pemisahan caption/gambar berasal dari input, tidak diperkenalkan
+formatter, dan justru berkurang pada output. Ini hasil reflow margin, bukan
+fitur formatter caption atau jaminan kepatuhan seluruh aturan caption.
+
+### Temuan layout terukur — belum diselesaikan
+
+Gambar dipertahankan selebar **14,2 cm**. Bidang teks sumber sekitar
+**16,501 cm**; setelah margin kiri 4 dan kanan 3 cm, bidang teks menjadi
+**13,999986 cm**. Gambar sekarang lebih lebar daripada bidang teks sekitar
+**0,200014 cm**. Paragraf gambar center; jumlah selisih lebar tersebut bukan
+pengukuran offset kiri/kanan persis pada render.
+
+Ukuran gambar tidak rusak atau diubah, dan tidak terlihat crop/overlap pada
+halaman fisik. Namun, hubungan gambar terhadap bidang tulisan baru berubah:
+gambar yang muat pada bidang semula kini melebihi lebarnya. Karena pemeriksaan
+margin/posisi objek diminta, masalah geometri nyata ini tidak diabaikan atau
+disebut sudah lulus kepatuhan margin seluruh konten.
+
+Penyebab terverifikasi: koreksi section mempersempit bidang teks, sementara
+ukuran inline image tetap dilindungi. Tidak diubah formatter produksi atau
+ukuran gambar untuk menyembunyikan temuan. **Subpemeriksaan preservasi dan
+nilai margin: PASS TERBATAS; penerimaan layout hasil S2: PENDING**, sehingga
+hasil keseluruhan tes pengganti **PARTIAL**, bukan PASS atau korupsi DOCX.
+
+Tindak lanjut yang benar-benar tersisa ialah disposisi gambar ini: apakah
+ukuran yang dipertahankan diterima sebagai pengecualian eksplisit pada
+acceptance preservasi, atau diperlukan koreksi manual yang diizinkan pada
+salinan dan pemeriksaan ulang bagian yang berubah. Tidak ada opsi tersebut
+dianggap disetujui. Tidak perlu memunculkan kembali blocker artefak historis
+atau meminta persetujuan varian 71 yang sudah selesai.
+
+### Matriks T13 setelah penggantian
+
+| Bagian | Status sekarang |
+|---|---|
+| Varian tesis 71 dan pengecualian 11 termasuk 401 | ACCEPTED FOR TESTING; teknis PASS TERBATAS, tetap berlaku |
+| Preservasi objek Master yang sudah diuji | PASS TERBATAS, bukti tetap dipakai tanpa mengulang |
+| Referensi historis halaman 4 S2 | SUPERSEDED BY REPRODUCIBLE S2 ACCEPTANCE; artefak asli tetap tidak teridentifikasi, bukan klaim tes lama PASS |
+| Pengganti S2: empat margin/integritas/caption/pagination | Subpemeriksaan lulus; Word 3 menjadi 3; caption/gambar tidak terpisah lagi |
+| Pengganti S2: gambar 14,2 cm versus bidang 14,0 cm | PENDING disposisi, tes pengganti PARTIAL |
+| Endnote aktif | Tidak ada pada korpus; NOT APPLICABLE pada input, tidak ada klaim dukungan umum |
+| Manipulasi objek kompleks, update TOC/field, aturan tanpa handler | Tetap di luar acceptance otomatis/tidak didukung, bukan PASS |
+| T13 keseluruhan | PARTIAL; belum ada dasar penutupan sampai temuan S2 didisposisikan dan batas akhirnya tercatat |
+
+Bukti aktual privat: `private_tests/t13_s2_replacement/acceptance_manifest.json`
+(operasi, hash, invarian dan hasil visual), `word_evidence.json`, pasangan
+DOCX, dua PDF dan enam PNG. Tidak ada data tesis privat yang disalin ke laporan
+tracked; fixture S2 adalah sintetis.
+
+`docs/TASKS.md` diberi catatan penggantian kriteria dan hasil terbaru, tanpa
+menghapus laporan historis T5. Tidak ada perubahan tesis asli, formatter,
+317 aturan, keputusan varian 71, API, pull, commit atau push. Regresi terakhir
+**274 passed** tidak diulang; `git diff --check` lulus.
+
+## Disposisi usulan referensi historis halaman 4 S2 — 26 November 2026
+
+**Status catatan: UNRESOLVED LEGACY REFERENCE. Status T13: PARTIAL.**
+Sumber fixture historis ditemukan, tetapi artefak hasil/screenshot dan jenis
+nomor halaman yang dimaksud tidak dapat diidentifikasi dengan bukti cukup.
+Bagian ini adalah usulan kriteria pengganti, **belum disetujui operator dan
+belum dijalankan**. Persetujuan varian 71 tidak dibuka ulang.
+
+### Hasil penelusuran yang dapat dipastikan
+
+`git show 4ef1bbd:docs/T5_REPORT.md` memuat catatan "Review halaman 4" pada
+baris fixture S2. Sumber fixture di commit yang sama benar-benar tersedia:
+
+`tests/fixtures/PPKI_T4B_02_Tesis_S2_Tabel_Gambar.docx`
+
+Byte sumber historis dan sumber saat ini **identik**. SHA-256 fixture
+**sintetis, bukan dokumen tesis privat**:
+
+`59eb7139d159adc40787a247ea28c4a6e9c00894d9580e13e0b54b5aa5668c77`
+
+Dengan demikian, keluarga/nama dan identitas **input** tidak lagi ambigu.
+Yang tetap tidak diketahui adalah file output/versi yang ditinjau, hash hasil,
+screenshot masalah dan apakah "4" merupakan indeks fisik atau nomor tercetak.
+Dokumen turunan T13/checklist mengulang catatan tanpa menambah identitas.
+Pernyataan empat halaman pada paragraf S3 dalam T5 bukan bukti untuk S2.
+
+Baseline S2 yang sudah diukur Word 16.0 build 16.0.20625 berjumlah **3 halaman
+fisik**, satu section. Hash baseline privat cocok dengan sumber saat ini.
+PDF/PNG dan `word_evidence.json` tersedia pada
+`private_tests/t13_baseline_20261125_234928/`. Tabel terlihat di halaman 2;
+caption gambar di 2 dan gambar di 3. Hasil itu tidak menjelaskan nomor historis
+4, dan tidak membuktikan catatan historis salah. Item tersebut belum dapat
+diterapkan secara reproducible pada fixture saat ini sebagai "cek halaman 4".
+Tidak diciptakan file, screenshot atau hitungan halaman untuk menutupnya.
+
+### Usulan pengganti: S2-PRESERVATION-01
+
+Tujuan hanya acceptance preservasi objek ketika **empat margin yang sudah
+didukung** diperbaiki pada fixture S2 ini. Ini bukan tugas membuat formatter
+caption/objek dan bukan pembuktian kepatuhan semua aturan.
+
+| Parameter/kriteria | Definisi konkret | Bukti yang sudah ada / yang harus dilengkapi |
+|---|---|---|
+| Input | Nama fixture dan SHA-256 di atas; S2, salinan baru, input tidak ditimpa | Input/hash terverifikasi termasuk kesamaan dengan commit T5 |
+| Output usulan | `private_tests/t13_s2_replacement/S2_margin_only_after.docx` | **BELUM DIBUAT**; hash wajib dicatat setelah pembuatan, tidak boleh ditebak |
+| Mode | Handler margin-only yang sudah ada; tanpa konfirmasi body/heading dan tanpa AI | Baru diusulkan, tidak memanggil formatter pada tahap disposisi |
+| Operasi | Tepat LAY-008/009/010/011; kiri 2,5 ke 4 cm, kanan 2 ke 3, atas 2,5 ke 3, bawah 3,5 ke 3 | Rencana konsisten dengan T5 dan properti input; empat hasil harus lolos audit ulang |
+| Non-target | 32 paragraf body, 1 tabel (18 baris termasuk header, 5 kolom), 1 gambar inline, 1 hyperlink, 1 section portrait/A4 | Inventaris saat ini terverifikasi; jumlah/isi/media/relasi dan properti non-target output wajib tetap sama |
+| Integritas | Teks/isi tabel/media/header-footer/field/hyperlink dan struktur XML selain empat margin dipertahankan; hash input sebelum/sesudah identik | Output dan bukti before/after baru masih PENDING |
+| Penomoran | Indeks fisik Word/PDF mulai 1 sebagai acuan utama; nomor yang tampil di footer dicatat terpisah | Jangan menganggap nomor tercetak sama dengan indeks tanpa memeriksanya |
+| Pagination Word | Buka pasangan read-only, Repaginate, ComputeStatistics; catat versi/build, jumlah halaman kedua file, dan hash DOCX | Baseline **3** terverifikasi; jumlah halaman output **PENDING**, bukan dipaksakan 3 atau 4 |
+| Objek/visual | Tinjau seluruh halaman fixture kecil ini, khususnya lokasi tabel, caption, gambar, hyperlink serta header/footer/PAGE; catat lokasi fisik sebelum/sesudah dan clipping/overlap | Sampel baseline tersedia; hasil output belum tersedia. Reflow yang sesuai perubahan margin dicatat sebagai perubahan diharapkan |
+| Caption-gambar | Teks/urutan/objek terkait terjaga. Baseline caption 2, gambar 3; celah 1 halaman merupakan kondisi awal | Usulan preservasi: caption tetap mendahului gambar, celah halaman tidak bertambah dari 1, dan tidak ada clipping/overlap baru. Celah memburuk menjadi blocker; baseline terpisah tidak diklaim sudah memenuhi aturan caption |
+| Laporan | Simpan manifest sumber/output/hash, empat operasi, audit ulang, lokasi objek dan hasil Word di folder privat tersebut | Manifest hasil belum dibuat; tidak menggunakan halaman Master sebagai bukti hasil S2 |
+
+Perubahan jumlah halaman boleh terjadi akibat empat margin; yang diterima
+adalah reflow yang terdokumentasi tanpa kehilangan/kerusakan objek, bukan
+angka halaman tertentu. Jika dibutuhkan caption dan gambar harus selalu
+satu halaman, itu kriteria lebih ketat yang perlu keputusan tersendiri;
+tidak dipenuhi dengan diam-diam mengubah caption melalui formatter yang
+belum mendukungnya.
+
+Usulan terstruktur tersimpan privat pada
+`private_tests/t13_complex_acceptance_20261126/s2_legacy_disposition_proposal.json`.
+Field output hash/jumlah halaman dan pilihan operator masih kosong/PENDING.
+Artefak usulan bukan artefak T5 lama dan tidak diberi label hasil uji lulus.
+
+### Pemisahan matriks akhir
+
+| Kelompok bukti | Status aktual | Penggunaan dalam penutupan |
+|---|---|---|
+| Tesis varian 71, pengecualian 11 termasuk 401 | ACCEPTED FOR TESTING; teknis PASS TERBATAS | Sudah diterima, tidak meminta persetujuan ulang atau membuka kasus yang selesai |
+| Preservasi tabel/gambar/header-footer/field/caption | PASS TERBATAS pada pasangan/sampel yang sudah dicatat | Bukan izin memodifikasi objek atau klaim semua variasi sudah aman |
+| Footnote/persamaan native/landscape Master | PASS TERBATAS pada contoh dan halaman terfokus 3/4/8 | Bukti Master tetap diberi nama Master; tidak menggantikan acceptance S2 |
+| Endnote aktif | NOT APPLICABLE pada korpus yang diperiksa | Dukungan umum belum diuji; di luar klaim, bukan PASS |
+| Update TOC/field, manipulasi objek kompleks dan aturan tanpa handler | Belum didukung/tidak termasuk acceptance yang diuji | Tetap dikecualikan; `manual.not-implemented` tetap `not_supported` |
+| Artefak halaman 4 S2 historis | UNRESOLVED LEGACY REFERENCE | Tetap blocker saat ini; bukan klaim FAIL formatter |
+| S2-PRESERVATION-01 | PROPOSED — menunggu pilihan A/B, belum dijalankan | Tidak dihitung sebagai PASS sebelum disetujui dan dibuktikan |
+
+### Pilihan operator yang disiapkan
+
+**A — Setujui penggantian.** Setujui S2-PRESERVATION-01 beserta batas
+preservasi di atas sebagai pengganti blocker yang tidak dapat direproduksi.
+Catatan T5 asli tetap disimpan sebagai UNRESOLVED LEGACY REFERENCE dengan
+status *digantikan untuk acceptance*, bukan dinyatakan terbukti selesai.
+Setelah A dipilih, jalankan hanya pemeriksaan S2 kecil yang diperlukan dan
+lengkapi output/hash/hasil Word; A saja belum meluluskan tes pengganti.
+
+**B — Pertahankan blocker historis.** Tidak mengganti kriteria; T13 tetap
+PARTIAL sampai output/screenshot T5 yang dimaksud berhasil diidentifikasi,
+jenis nomor halaman diketahui dan pemeriksaan yang relevan selesai.
+
+**Belum ada A atau B yang dianggap dipilih.** Ini keputusan atas disposisi
+catatan S2, bukan permintaan ulang persetujuan varian 71.
+
+### Kapan T13 dapat PASS TERBATAS
+
+| Kondisi objektif | Status T13 yang dibenarkan |
+|---|---|
+| A/B belum diputuskan | PARTIAL |
+| A disetujui, kriteria pengganti belum dijalankan atau bukti output/Word belum lengkap | PARTIAL |
+| A disetujui, pengganti lulus seluruh kriteria yang disetujui, tidak ada kerusakan baru/masalah terbuka pada scope, matriks akhir eksplisit tentang preservasi/pengecualian dan bukti terlacak | Dapat ditutup PASS TERBATAS hanya untuk cakupan yang disepakati; bukan 317 aturan atau produksi otomatis umum |
+| B dipilih, artefak historis masih tidak teridentifikasi | PARTIAL |
+| B dipilih, artefak berhasil ditemukan dan pemeriksaan relevannya lulus, seluruh gerbang lain terpenuhi dengan batas eksplisit | Dapat ditutup PASS TERBATAS untuk scope yang disepakati |
+| Ada FAIL baru atau hasil tidak konsisten pada cakupan yang diuji | Tetap PARTIAL sampai temuan relevan diselesaikan; jangan menutupi FAIL |
+
+Rekomendasi **A** karena mengubah blocker tak terukur menjadi pemeriksaan
+preservasi S2 yang dapat diulang, tetapi keputusan tetap milik operator.
+Tidak diperlukan pengulangan tesis 86 halaman atau regresi untuk disposisi
+ini. Langkah berikut setelah keputusan A adalah pemeriksaan S2 terfokus saja.
+Saat ini belum siap ditutup; **T13 tetap PARTIAL**.
+
+Tahap ini hanya membaca referensi Git lokal, mencocokkan hash/inventaris input,
+dan menulis dua laporan serta satu usulan privat. Tidak ada formatter,
+Word/render/pytest ulang, perubahan tesis/kode/aturan, API, pull, commit atau
+push. Regresi terakhir **274 passed** tetap historis; `git diff --check` lulus.
+
+## Rekonsiliasi acceptance objek kompleks dan S2 — 26 November 2026
+
+Pemeriksaan dilakukan di **PC rumah**, bukan mengasumsikan bukti tersedia di
+laptop. `private_tests/` dan keputusan akhir operator varian 71 ditemukan.
+Persetujuan **ACCEPTED FOR TESTING** tetap berlaku; tidak diminta ulang.
+Tidak ada formatter dijalankan atau dokumen baru diformat pada tahap ini.
+
+### Sumber bukti dan pemeriksaan tambahan yang diperlukan
+
+Bukti tesis 71 digunakan kembali: 29 tabel, 15 gambar inline, dua section
+portrait, 201 field body menurut Word, tujuh sampel visual, integritas sumber/
+output dan pengecualian 11 paragraf. Tidak dilakukan render ulang 86 halaman.
+
+Bukti historis `T13_REPORT.md`, `CONTROLLED_FORMATTING_PILOT_REPORT.md` dan
+assertion pada `tests/test_t13_acceptance.py` / `tests/test_t5_fixtures.py`
+menunjukkan preservasi paket, teks, tabel, section, field dan idempotensi pada
+fixture yang diuji. Angka regresi terakhir tetap **274 passed**, tidak diulang.
+Bukti historis lulus teknis tidak diubah menjadi klaim visual tanpa render.
+
+Inventaris read-only fixture dan salinan pilot lama mengonfirmasi:
+
+- **Dummy Master**: 112 paragraf, 3 tabel, 2 gambar inline, 6 section dengan
+  section 5 landscape; 1 footnote aktif, 1 persamaan native Word, field TOC,
+  hyperlink dan PAGE, 6 part header dan 6 part footer; **0 endnote aktif**.
+- **S3**: 3 section, section 3 landscape, 2 tabel, 1 gambar inline; tanpa
+  footnote/endnote/persamaan aktif. Bukti skip landscape dan integritas sudah
+  tercatat pada tes/laporan historis, tidak dijalankan ulang.
+- **Tesis privat**: tanpa landscape, footnote/endnote aktif atau persamaan
+  native; part footnotes hanya separator. Header berisi penomoran; tidak ada
+  part footer berisi konten pada paket tesis. Karena itu contoh footer berisi
+  konten menggunakan Master, bukan mengklaim footer kosong sebagai cakupan penuh.
+
+Pasangan Master yang sudah tersedia:
+`tests/fixtures/PPKI_MASTER_Dummy_Uji_Lengkap_v1.docx` dan
+`private_tests/dummy_pilot_formatted.docx`. Perbandingan ulang pasangan ini
+membuktikan seluruh bagian ZIP selain XML utama identik, seluruh teks dan XML
+tabel sama, subtree persamaan/field sama, serta XML seluruh section identik.
+Hanya paragraf body 44 berubah pada pasangan pilot lama, sesuai konteks pilot;
+pasangan ini bukan hasil mode umum sembilan operasi T13 dan tidak disamakan
+dengan pengujian lain hanya karena nama fixture sama.
+
+Celah bukti visual Master ditutup secara terfokus: dua salinan lokal byte-identik
+dibuka **read-only** di Word 16.0 build 16.0.20625, direpaginate, diekspor hanya
+halaman fisik **3, 4, 8**, lalu ditutup tanpa menyimpan. Kedua dokumen **9 halaman**.
+Halaman 3 dan 8 identik pixel pada skala maksimum 1400 px. Halaman 4 berubah
+aliran teks setelah properti paragraf target berubah; persamaan, penanda dan
+isi footnote tetap terlihat utuh, tanpa clipping/overlap baru yang teramati.
+Header/footer dan nomor tercetak terlihat pada ketiga halaman. TOC masih
+menampilkan placeholder cache; tidak dipanggil update field dan tidak diklaim
+bahwa daftar isi sudah benar atau lengkap.
+
+Bukti privat baru:
+`private_tests/t13_complex_acceptance_20261126/word_evidence.json` dan
+`integrity_visual_summary.json`, dua salinan serta enam PDF/PNG halaman terpilih.
+Hash sumber dan salinan sebelum/sesudah sesuai. Bukti lama tidak dihapus.
+
+### Matriks acceptance per jenis objek
+
+Status merupakan **preservasi pada pasangan yang dinyatakan**, bukan validator
+kepatuhan atau kemampuan memformat objek. NOT APPLICABLE hanya berarti objek
+aktif tidak ada pada input yang disebut, bukan seluruh dukungan sudah diuji.
+
+| Objek | Ada di input mana | Bukti uji/integritas | Diubah formatter? | Visual dan batasnya | Status |
+|---|---|---|---|---|---|
+| Tabel | Tesis 29; Master 3; S2 1; S3 2 | XML seluruh tabel tesis/Master identik; tes historis T13/T5 mempertahankan isi dan paket | Isi/properti tabel tidak diubah; layout di luar objek dapat berpengaruh | Sampel tesis diterima operator; tabel lebar Master halaman 8 identik sebelum/sesudah | PASS TERBATAS |
+| Gambar/grafik | Tesis 15 inline/43 floating; Master 2 inline | Seluruh media dan struktur drawing pada pasangan tesis/Master terjaga; grafik Master berupa gambar, bukan tes semua chart native | Tidak diubah | Sampel tesis dan gambar landscape Master diperiksa; seluruh variasi chart/OLE tidak diluluskan | PASS TERBATAS untuk preservasi yang diuji; PENDING di luar cakupan |
+| Header/footer | Header tesis; Master 6 header/6 footer | Part dan referensi terkait identik; konfigurasi section terjaga | Tidak diubah | Master 3/4/8 memperlihatkan header dan footer/nomor yang sama; bukan tes seluruh variasi header/footer | PASS TERBATAS |
+| Footnote | Master 1 aktif; tesis 0 | Part footnotes, referensi dan struktur terkait identik pada pasangan Master; bukti tes historis juga ada | Tidak diubah | Penanda dan catatan kaki terlihat pada halaman 4 sebelum/sesudah; posisi catatan tetap di bawah halaman | PASS TERBATAS pada 1 contoh; NOT APPLICABLE untuk tesis |
+| Endnote | 0 aktif pada seluruh fixture dan tesis yang diinventaris | Tidak ada konten endnote aktif untuk dibandingkan | Tidak ada target | Tidak bisa menguji tampilan endnote dari separator/konstruk yang tidak ada | NOT APPLICABLE pada korpus ini; PENDING dukungan umum |
+| Field Word | TOC/hyperlink/PAGE Master; field tesis TOC/PAGEREF/SEQ dan PAGE | Paragraf field/part terkait tetap utuh; jumlah serta metadata tesis terjaga; cache/display contoh tidak hilang | Tidak ada perubahan instruksi yang diizinkan atau update field eksplisit | Master halaman 3/4 memperlihatkan cache/hyperlink; PAGE terlihat di footer. Update/rebuild TOC/tautan belum diuji | PASS TERBATAS preservasi; PENDING perilaku update |
+| Persamaan native | Master 1 OMML; tesis 0 | Subtree persamaan identik | Tidak diubah | Halaman 4: persamaan terlihat utuh; pergeseran vertikal mengikuti reflow paragraf sebelumnya, bukan perubahan isi persamaan | PASS TERBATAS pada 1 contoh; NOT APPLICABLE untuk tesis |
+| Section landscape | Master section 5; S3 section 3; tesis 0 | XML section Master identik; tes historis S3 membuktikan section landscape di-skip dan tetap identik | Properti landscape dilindungi, tidak dikoreksi | Master halaman 8 landscape identik pixel, tabel/gambar/caption/footer tetap terlihat; bukan klaim visual semua section S3 | PASS TERBATAS untuk Master/skip struktural S3; NOT APPLICABLE untuk tesis |
+| Caption/penomoran | Tesis, Master dan S2 | Caption/field terkait tidak ditulis ulang; lokasi kandidat caption tesis tetap; konfigurasi nomor section identik | Tidak diformat/dinomori ulang | Master 3 menampilkan iii; 4 dan 8 menampilkan 1 sesuai restart. Caption objek landscape terlihat. Baseline S2 memiliki caption halaman 2, gambar halaman 3 | PASS TERBATAS preservasi/display; PENDING kepatuhan/pemisahan historis S2 |
+
+Tidak ditemukan **FAIL baru akibat formatter** pada pasangan dan sampel yang
+baru diperiksa. Status bukan jaminan konten awal benar atau aturan yang belum
+memiliki handler telah didukung. Grafik/objek tertanam yang tidak ditargetkan
+memiliki bukti preservasi paket, bukan bukti seluruh perilaku aplikasinya.
+
+### Penyelidikan asal item T5 halaman 4 S2
+
+Riwayat Git lokal menemukan pengenalan catatan tersebut pada commit
+**`4ef1bbd` (`fix T5`)**, saat `docs/T5_REPORT.md` pertama ditambahkan.
+Tabel aslinya menautkan S2 ke
+`tests/fixtures/PPKI_T4B_02_Tesis_S2_Tabel_Gambar.docx`, dengan tindak lanjut
+"Review halaman 4; pemeriksaan akhir Microsoft Word: PENDING".
+`T13_WORD_CHECKLIST.md` dan `T13_REPORT.md` meneruskan catatan itu;
+`TASKS.md` mengarahkan ke laporan/checklist tanpa identitas artefak tambahan.
+
+**Yang dapat diidentifikasi:** keluarga fixture/nama sumber S2 tersebut.
+**Yang tidak dapat diidentifikasi:** file hasil yang dimaksud, hash/versi
+input-output, screenshot, objek spesifik dan jenis penomoran (fisik atau
+tercetak). Angka empat halaman pada paragraf lain laporan T5 secara eksplisit
+membahas **S3**, sehingga tidak menjadi bukti nomor halaman S2.
+
+Bukti Word S2 yang tersedia dari sesi sebelumnya adalah baseline 3 halaman,
+1 section, tabel di halaman 2 dan gambar di 3; footer memuat nomor halaman
+tercetak. Itu tidak menentukan maksud nomor historis "4". Halaman fisik keempat
+tesis privat tidak berkaitan tanpa bukti tambahan. Fixture S2 tidak diformat
+atau dirender ulang pada tahap ini untuk menciptakan halaman keempat.
+
+**Status: UNRESOLVED / PENDING.** Tindak lanjut paling sempit: temukan artefak
+hasil/screenshot pemeriksaan T5 yang dimaksud, atau catat keputusan eksplisit
+pemilik untuk menutup/mengganti item historis dengan kriteria berbasis objek
+(tabel, caption dan gambar) yang jelas serta bukti yang sesuai. Ini bukan
+permintaan persetujuan ulang varian 71 dan tidak ditutup diam-diam.
+
+### Rekonsiliasi akhir dan batas penggunaan
+
+**Selesai:** acceptance operator varian 71; preservasi teks/tabel/media dan
+11 pengecualian; operasi/pagination tesis; sampel visual tesis; preservasi
+serta visual terfokus footnote, persamaan, field, header/footer dan landscape
+pada Master. Status bagian-bagian tersebut **PASS TERBATAS**.
+
+**Tidak tercakup / pengecualian yang disarankan:** perubahan isi/format tabel,
+gambar, caption, nomor halaman, footnote/endnote, persamaan, chart/OLE dan
+struktur section kompleks tetap di luar formatter otomatis yang diterima.
+Update field/TOC tidak termasuk acceptance. Endnote aktif belum teruji.
+Objek yang ada hanya dipertahankan pada contoh yang diuji; dokumen lain dengan
+konstruksi tersebut tetap perlu audit dan review, bukan diasumsikan aman.
+`manual.not-implemented` tetap `not_supported`, bukan PASS. Batas ini tidak
+mengubah handler atau memperluas persetujuan operator.
+
+**Masih terbuka:** item T5 S2 yang belum teridentifikasi dan pencatatan batas
+cakupan penutupan T13 untuk kasus yang tidak diuji. Tidak ada kebutuhan
+mengulang approval 71, seluruh 86 render atau regresi 274 untuk memperbarui
+matriks ini.
+
+T13 dapat dinyatakan **PASS hanya untuk cakupan yang eksplisit** setelah:
+
+1. Item S2 diselesaikan dengan bukti artefak/halaman yang tepat, atau keputusan
+   penggantian/penutupan item historis yang eksplisit dan terdokumentasi.
+2. Matriks akhir memisahkan preservasi yang sudah diuji dari objek/perilaku
+   yang dikecualikan, dan batas cakupan penutupan itu disepakati. Jika endnote
+   atau update field ingin diklaim didukung, bukti terfokusnya harus ada;
+   jika tidak, keduanya harus tetap di luar klaim, tanpa memaksakan tes baru.
+3. Tidak ada FAIL baru yang belum terselesaikan pada cakupan tersebut, dan
+   artefak/hash/keputusan operator dapat ditelusuri. Dua syarat terakhir ini
+   tidak mengubah keputusan ACCEPTED FOR TESTING menjadi izin produksi umum.
+
+Saat ini **T13 tetap PARTIAL**: cakupan sempit dapat direkomendasikan, tetapi
+item unresolved dan pengecualian tidak boleh dianggap sudah disetujui untuk
+mengubah kriteria T13. Satu langkah berikut paling bermanfaat adalah
+**menyelesaikan disposisi item historis halaman 4 S2**, bukan menambah fixture
+atau mengulang acceptance tesis yang sudah diterima.
+
+Pemeriksaan tambahan hanya inventaris/komparasi read-only dan enam halaman
+render terfokus Master (3 halaman sebelum + 3 sesudah). Tidak ada render
+86 halaman, formatter atau pytest ulang. Hanya dua laporan dan bukti lokal
+privat ditulis; tidak ada perubahan tesis asli, formatter produksi, 317
+aturan, API, pull, commit atau push. Hash sumber/copy Master tetap sesuai;
+`git diff --check` lulus. Regresi terakhir **274 passed**.
+
+## Persetujuan akhir terbatas operator — 26 November 2026
+
+**ACCEPTED FOR TESTING — varian 71 pada salinan tesis uji ini saja.**
+Operator menyatakan sudah memeriksa varian tersebut secara langsung di
+Microsoft Word dan menerima hasilnya dengan batas yang disebutkan di bawah.
+Ini adalah bukti pernyataan operator; tidak diklaim sebagai screenshot baru
+yang diperiksa Codex. Gerbang penerimaan akhir file yang sebelumnya PENDING
+**telah dipenuhi untuk pengujian terbatas ini**. Tidak perlu meminta ulang
+persetujuan cakupan atau penerimaan file yang sama.
+
+### Identitas yang diverifikasi
+
+File tetap di lokasi privat:
+
+`private_tests/t13_real_acceptance_20261125_235720/experiment_71_only/EXPERIMENT_NOT_OPERATOR_APPROVED.docx`
+
+Hash file saat pencatatan cocok dengan tiga bukti sebelumnya:
+`experiment_evidence.json`, `limited_scope_final_technical_acceptance.json`
+dan `final_word_check.json`. Tesis sumber juga masih cocok dengan hash asal.
+Hash lengkap tetap hanya pada manifest privat, sesuai kebijakan penyamaran
+laporan repository. Tidak ada DOCX yang dibuka ulang untuk penyimpanan,
+diubah, diganti atau diberi nama baru. Nama NOT_OPERATOR_APPROVED adalah
+label historis eksperimen, bukan status persetujuan terkini.
+
+Keputusan terbaru yang terikat hash dan daftar paragraf disimpan lokal pada:
+
+`private_tests/t13_real_acceptance_20261125_235720/experiment_71_only/operator_final_limited_acceptance_20261126.json`
+
+Keputusan baru ini mengatasi status menunggu penerimaan file pada catatan
+sebelumnya. Bukti/keputusan lama dipertahankan sebagai riwayat, tidak dihapus
+atau dipalsukan menjadi persetujuan pada tanggal sebelumnya.
+
+### Batas keputusan operator
+
+| Aspek | Keputusan yang benar-benar diberikan |
+|---|---|
+| File/cakupan | Terima hasil 71 paragraf pada salinan tesis uji ini sebagai ACCEPTED FOR TESTING |
+| Operasi | 71 normalisasi spasi LAY-017 dan 3 indentasi LAY-018 yang sudah diverifikasi; tidak menambah operasi |
+| Kelompok tertahan | Semua properti sumber pada 307,314,319,326,373,401,757,758,759,764,769 tetap dipertahankan |
+| Paragraf 401 | Kecualikan seluruh operasi, termasuk spasi dan indentasi |
+| Beta 82 | Bukan output final yang disetujui |
+| Dokumen lain/produksi | Tidak ada persetujuan generik untuk semua skripsi, tesis, disertasi atau pemrosesan produksi otomatis |
+| Bukti teknis sebelumnya | Tetap PASS TERBATAS: 86 halaman; teks/tabel/media/section terjaga; tujuh sampel visual varian, tanpa klaim seluruh halaman identik |
+| Status T13 | PARTIAL sampai sisa kriteria acceptance terpenuhi |
+| Cakupan aturan | Tidak membuktikan kepatuhan terhadap 317 aturan; aturan tanpa handler/validasi tetap belum didukung |
+
+### Syarat tersisa sebelum T13 dapat ditutup
+
+1. **Tuntaskan acceptance objek kompleks yang relevan atau sepakati batas
+   cakupan secara eksplisit.** Tesis ini tidak mempunyai footnote aktif,
+   persamaan native atau section landscape; preservasi field tidak sama
+   dengan pengujian perilaku update field. Pakai bukti/fixture yang sudah
+   tersedia dan pemeriksaan terfokus, bukan mengulang semua pengujian.
+   Bagian belum teruji tidak boleh diberi PASS hanya dari pengujian tesis ini.
+2. **Selesaikan item historis T5 "halaman 4 S2".** Sumber merujuk fixture
+   sintetis S2, tetapi versi input/output dan nomor fisik/tercetak tidak
+   disebutkan. Identifikasi artefak yang dimaksud atau catat keputusan
+   operator tentang penyelesaian/penggantian item beserta bukti yang tepat.
+   Jangan menyamakannya dengan halaman fisik keempat tesis privat.
+3. **Rekonsiliasi matriks penutupan T13 dengan batas di atas.** Penerimaan
+   file 71 kini selesai untuk pengujian terbatas; jangan membuka ulang gerbang
+   itu tanpa perubahan file/scope atau temuan baru. Pemeriksaan visual yang
+   belum dilakukan di luar sampel tetap dicatat sebagai batas bukti, bukan
+   diasumsikan PASS atau otomatis memerlukan render ulang 86 halaman.
+
+### Tahapan pengembangan yang disarankan
+
+Prioritas berikut tetap satu task: **T13 — review terfokus matriks acceptance
+objek kompleks dan item S2 menggunakan artefak yang sudah ada**. Ini paling
+langsung mengurangi sisa hambatan penutupan tanpa memperluas formatter.
+Setelah kriteria T13 benar-benar dipenuhi, lakukan pilot lokal pada dokumen
+representatif lain dengan scope yang dikonfirmasi per dokumen, audit ulang,
+proteksi T14 dan pemeriksaan hasil. Peningkatan cakupan otomatis selanjutnya
+harus berdasarkan kesalahan klasifikasi/pengecualian yang terukur, dimulai
+dari aturan yang sudah didukung; hasil satu tesis ini bukan izin untuk
+mengotomasi seluruh aturan atau struktur akademik.
+
+Pada tahap pencatatan ini hanya dua laporan dan satu manifest keputusan
+privat baru ditulis. Tidak ada perubahan tesis, varian, kode formatter atau
+aturan JSON; tidak ada API, pull, commit atau push. Word, render dan pytest
+tidak diulang karena identitas/bukti konsisten. Regresi terakhir tetap
+**274 passed**. `git diff --check` lulus. Status keseluruhan **T13 PARTIAL**.
 
 ## Catatan privasi untuk sinkronisasi laptop — 26 November 2026
 

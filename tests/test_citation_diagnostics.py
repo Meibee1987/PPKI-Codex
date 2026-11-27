@@ -72,6 +72,6 @@ def test_streamlit_displays_diagnostics_without_body_confirmation():
         assert any("Audit Sitasi dan Daftar Pustaka" in s.value for s in app.subheader)
         assert any("Kandidat sitasi: 5" in s.value for s in app.markdown)
         assert any("pasangan" in frame.value.columns and "status" in frame.value.columns for frame in app.dataframe)
-        findings = app.dataframe[1].value
+        findings = next(frame.value for frame in app.dataframe if {"rule_code", "status", "message"} <= set(frame.value.columns))
         assert set(findings[findings.rule_code.str.startswith(("PPKI-CIT-", "PPKI-REF-"))].status) <= {"not_supported", "needs_review"}
         assert any("validator manual yang belum didukung: 65" in s.value for s in app.markdown)
